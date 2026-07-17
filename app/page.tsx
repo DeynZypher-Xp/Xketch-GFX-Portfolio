@@ -112,64 +112,58 @@ export default function Home() {
 
       {/* Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-3xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto h-16 sm:h-19 px-4 sm:px-6 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="flex items-center">
-              <Image
-                src="/XketchPng.png"
-                alt="Xketch GFX"
-                width={220}
-                height={55}
-                className="w-[180px] sm:w-[260px] md:w-[300px] h-auto"
-                priority
-              />
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
+          
+          {/* Logo Container */}
+          <div className="flex items-center justify-center">
+            <Image
+              src="/XketchPng.png"
+              alt="Xketch GFX"
+              width={220}
+              height={55}
+              className="w-[180px] sm:w-[220px] md:w-[260px] h-auto"
+              priority
+            />
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-2 lg:gap-5 text-base lg:text-lg font-medium">
+          {/* Unified Horizontal Navigation (Desktop & Mobile look exactly the same) */}
+          <nav className="flex items-center gap-2 sm:gap-3 lg:gap-5 text-sm sm:text-base lg:text-lg font-medium overflow-x-auto max-w-full pb-2 md:pb-0 no-scrollbar [-ms-overflow-style:none] [scrollbar-width:none]">
             {links.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
-                className="relative px-4 lg:px-6 py-1.5 rounded-full text-zinc-300 border border-white/0 transition-all duration-700 ease-out hover:text-white hover:bg-purple-500/50 hover:border-purple-500/100 hover:backdrop-blur-3xl hover:shadow-[0_0_30px_rgba(168,85,247,0.25)] hover:scale-105 before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-b before:from-white/15 before:to-transparent before:opacity-0 before:transition-opacity before:duration-700 hover:before:opacity-100"
+                className="
+                  relative
+                  px-4 sm:px-5 lg:px-6 py-1.5
+                  rounded-full
+                  whitespace-nowrap
+                  text-zinc-300
+                  border border-white/0
+                  transition-all duration-700 ease-out
+                  hover:text-white
+                  hover:bg-purple-500/50
+                  hover:border-purple-500/100
+                  hover:backdrop-blur-3xl
+                  hover:shadow-[0_0_30px_rgba(168,85,247,0.25)]
+                  hover:scale-105
+                  before:absolute
+                  before:inset-0
+                  before:rounded-full
+                  before:bg-gradient-to-b
+                  before:from-white/15
+                  before:to-transparent
+                  before:opacity-0
+                  before:transition-opacity
+                  before:duration-700
+                  hover:before:opacity-100
+                "
               >
                 <span className="relative z-10">{link.name}</span>
               </a>
             ))}
           </nav>
 
-          {/* Mobile Menu Button */}
-          <button 
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-zinc-300 hover:text-white focus:outline-none"
-            aria-label="Toggle Menu"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
         </div>
-
-        {/* Mobile Dropdown Menu */}
-        {mobileMenuOpen && (
-          <nav className="md:hidden border-t border-white/10 bg-black/90 backdrop-blur-2xl px-4 py-4 flex flex-col gap-3">
-            {links.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-4 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-purple-500/20 transition-all"
-              >
-                {link.name}
-              </a>
-            ))}
-          </nav>
-        )}
       </header>
 
       {/* Hero */}
