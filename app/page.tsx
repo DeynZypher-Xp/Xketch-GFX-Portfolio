@@ -112,19 +112,6 @@ export default function Home() {
 
       {/* Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-3xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto h-16 sm:h-19 px-4 sm:px-6 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="flex items-center">
-              <Image
-                src="/XketchPng.png"
-                alt="Xketch GFX"
-                width={220}
-                height={55}
-                className="w-[180px] sm:w-[260px] md:w-[300px] h-auto"
-                priority
-              />
-            </div>
-          </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2 lg:gap-5 text-base lg:text-lg font-medium">
@@ -153,7 +140,7 @@ export default function Home() {
               )}
             </svg>
           </button>
-        </div>
+        
 
         {/* Premium Horizontal Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
@@ -216,6 +203,20 @@ export default function Home() {
             posters, wallpapers, Building Plans and motion graphics with modern,
             cinematic visuals.
           </p>
+          <div className="max-w-7xl mx-auto h-16 sm:h-19 px-4 sm:px-6 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="flex items-center">
+              <Image
+                src="/XketchPng.png"
+                alt="Xketch GFX"
+                width={220}
+                height={55}
+                className="w-[180px] sm:w-[260px] md:w-[300px] h-auto"
+                priority
+              />
+            </div>
+          </div>
+          </div>
 
           <div className="flex justify-center lg:justify-start gap-4 sm:gap-5 mt-8 lg:mt-10">
             <a
