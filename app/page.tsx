@@ -185,16 +185,7 @@ h-auto
 />
 
 
-<nav
-className="
-hidden
-md:flex
-items-center
-gap-5
-text-lg
-font-medium
-"
->
+<nav className="flex items-center gap-2 md:gap-5 text-sm md:text-lg font-medium overflow-x-auto">
 
 {
 [
