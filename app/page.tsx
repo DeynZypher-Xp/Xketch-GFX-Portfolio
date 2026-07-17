@@ -155,9 +155,9 @@ export default function Home() {
           </button>
         </div>
 
-       {/* Premium Horizontal Mobile Navigation Dropdown */}
+      {/* Premium Horizontal Mobile Navigation Dropdown */}
 {mobileMenuOpen && (
-  <nav className="md:hidden border-t border-white/10 bg-black/20 backdrop-blur-3xl px-4 py-3 flex flex-row gap-2 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]">
+  <nav className="md:hidden border-t border-white/10 bg-transparent px-4 py-3 flex flex-row gap-2 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]">
     {links.map((link) => (
       <a
         key={link.name}
