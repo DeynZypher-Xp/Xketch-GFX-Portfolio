@@ -112,6 +112,19 @@ export default function Home() {
 
       {/* Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-3xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto h-16 sm:h-19 px-4 sm:px-6 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="flex items-center">
+              <Image
+                src="/XketchPng.png"
+                alt="Xketch GFX"
+                width={220}
+                height={55}
+                className="w-[180px] sm:w-[260px] md:w-[300px] h-auto"
+                priority
+              />
+            </div>
+          </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2 lg:gap-5 text-base lg:text-lg font-medium">
@@ -140,7 +153,7 @@ export default function Home() {
               )}
             </svg>
           </button>
-        
+        </div>
 
         {/* Premium Horizontal Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
@@ -203,20 +216,23 @@ export default function Home() {
             posters, wallpapers, Building Plans and motion graphics with modern,
             cinematic visuals.
           </p>
-          <div className="max-w-7xl mx-auto h-16 sm:h-19 px-4 sm:px-6 flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="flex items-center">
-              <Image
-                src="/XketchPng.png"
-                alt="Xketch GFX"
-                width={220}
-                height={55}
-                className="w-[180px] sm:w-[260px] md:w-[300px] h-auto"
-                priority
-              />
-            </div>
+
+          <div className="relative flex justify-center items-center order-1 lg:order-2 mt-8 lg:mt-0">
+          {/* Glow */}
+          <div className="absolute w-[280px] sm:w-[480px] h-[280px] sm:h-[480px] rounded-full bg-purple-600/25 blur-[80px] sm:blur-[140px]" />
+
+          {/* Circle Frame */}
+          <div className="relative w-[280px] sm:w-[430px] h-[280px] sm:h-[430px] rounded-full overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
+            <Image
+              src="/Mypc.png"
+              alt="Profile"
+              width={450}
+              height={450}
+              className="object-cover object-center translate-y-4 sm:translate-y-8 scale-105 sm:scale-100"
+              priority
+            />
           </div>
-          </div>
+        </div>
 
           <div className="flex justify-center lg:justify-start gap-4 sm:gap-5 mt-8 lg:mt-10">
             <a
@@ -246,23 +262,6 @@ export default function Home() {
               <h2 className="text-xl sm:text-3xl font-bold text-purple-400">100%</h2>
               <p className="text-zinc-500 text-xs sm:text-sm mt-1">Creative</p>
             </div>
-          </div>
-        </div>
-
-        <div className="relative flex justify-center items-center order-1 lg:order-2 mt-8 lg:mt-0">
-          {/* Glow */}
-          <div className="absolute w-[280px] sm:w-[480px] h-[280px] sm:h-[480px] rounded-full bg-purple-600/25 blur-[80px] sm:blur-[140px]" />
-
-          {/* Circle Frame */}
-          <div className="relative w-[280px] sm:w-[430px] h-[280px] sm:h-[430px] rounded-full overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
-            <Image
-              src="/Mypc.png"
-              alt="Profile"
-              width={450}
-              height={450}
-              className="object-cover object-center translate-y-4 sm:translate-y-8 scale-105 sm:scale-100"
-              priority
-            />
           </div>
         </div>
       </section>
