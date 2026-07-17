@@ -155,46 +155,46 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Premium Horizontal Mobile Navigation Dropdown */}
-        {mobileMenuOpen && (
-          <nav className="md:hidden border-t border-white/10 bg-black/90 backdrop-blur-2xl px-4 py-3 flex flex-row gap-2 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]">
-            {links.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="
-                  relative
-                  px-4 py-1.5
-                  rounded-full
-                  whitespace-nowrap
-                  text-sm
-                  font-medium
-                  text-zinc-300
-                  border border-white/0
-                  transition-all duration-500 ease-out
-                  
-                  hover:text-white
-                  hover:bg-purple-500/40
-                  hover:border-purple-500/80
-                  hover:shadow-[0_0_20px_rgba(168,85,247,0.2)]
-                  active:scale-95
-                  
-                  before:absolute
-                  before:inset-0
-                  before:rounded-full
-                  before:bg-gradient-to-b
-                  before:from-white/15
-                  before:to-transparent
-                  before:opacity-0
-                  hover:before:opacity-100
-                "
-              >
-                <span className="relative z-10">{link.name}</span>
-              </a>
-            ))}
-          </nav>
-        )}
+       {/* Premium Horizontal Mobile Navigation Dropdown */}
+{mobileMenuOpen && (
+  <nav className="md:hidden border-t border-white/10 bg-black/20 backdrop-blur-3xl px-4 py-3 flex flex-row gap-2 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]">
+    {links.map((link) => (
+      <a
+        key={link.name}
+        href={link.href}
+        onClick={() => setMobileMenuOpen(false)}
+        className="
+          relative
+          px-4 py-1.5
+          rounded-full
+          whitespace-nowrap
+          text-sm
+          font-medium
+          text-zinc-300
+          border border-white/0
+          transition-all duration-500 ease-out
+          
+          hover:text-white
+          hover:bg-purple-500/40
+          hover:border-purple-500/80
+          hover:shadow-[0_0_20px_rgba(168,85,247,0.2)]
+          active:scale-95
+          
+          before:absolute
+          before:inset-0
+          before:rounded-full
+          before:bg-gradient-to-b
+          before:from-white/15
+          before:to-transparent
+          before:opacity-0
+          hover:before:opacity-100
+        "
+      >
+        <span className="relative z-10">{link.name}</span>
+      </a>
+    ))}
+  </nav>
+)}
       </header>
 
       {/* Hero */}
