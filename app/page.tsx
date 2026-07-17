@@ -81,7 +81,7 @@ useEffect(() => {
       : projects.filter((p) => p.category === selected);
 
   return (
-    <main className="relative min-h-screen w-full max-w-full overflow-x-hidden bg-transparent text-white">
+    <main className="min-h-screen bg-transparent text-white overflow-x-hidden">
 
       <section
   id="home"
@@ -117,7 +117,7 @@ useEffect(() => {
           <div className="flex items-center gap-4">
             
 
-           <div className="flex items-center md:-ml-10">
+           <div className="flex items-center -ml-10">
   <Image
     src="/XketchPng.png"
     alt="Xketch GFX"
@@ -240,16 +240,16 @@ hover:before:opacity-100
 
        <div className="relative flex justify-center items-center">
   {/* Glow */}
- <div className="absolute w-[300px] h-[300px] md:w-[480px] md:h-[480px] rounded-full bg-purple-600/25 blur-[140px]" />
+  <div className="absolute w-[480px] h-[480px] rounded-full bg-purple-600/25 blur-[140px]" />
 
   {/* Circle */}
-  <div className="relative w-[280px] h-[280px] md:w-[430px] md:h-[430px] rounded-full overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
+  <div className="relative w-[430px] h-[430px] rounded-full overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
     <Image
       src="/Mypc.png"
       alt="Profile"
       width={450}
       height={450}
-     className="w-[180px] md:w-[300px] h-auto"
+      className="object-cover object-center translate-y-8"
       priority
     />
   </div>
