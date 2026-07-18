@@ -267,9 +267,9 @@ export default function Home() {
     </span>
 
     <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mt-6 lg:mt-8 leading-tight">
-      Bringing Ideas
-      <span className="block text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text">
-        To Life
+      Bringing Ideas .
+      <span className=" text-transparent bg-gradient-to-r from-purple-300 to-purple-900 bg-clip-text">
+         To Life
       </span>
     </h1>
 
