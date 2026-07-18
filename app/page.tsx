@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
 
+
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
 });
@@ -52,6 +53,7 @@ export default function Home() {
   const [selected, setSelected] = useState("All");
   const [scrollY, setScrollY] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeLink, setActiveLink] = useState("#home");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -64,6 +66,8 @@ export default function Home() {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  
 
   const categories = [
     "All",
@@ -90,7 +94,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-transparent text-white overflow-x-hidden">
-      <section id="home" className="max-w-7xl mx-auto px-4 sm:px-6 py-5"></section>
 
       {/* Scroll Reactive Premium Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden bg-black">
@@ -127,18 +130,55 @@ export default function Home() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-2 lg:gap-5 text-base lg:text-lg font-medium">
-            {links.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="relative px-4 lg:px-6 py-1.5 rounded-full text-zinc-300 border border-white/0 transition-all duration-700 ease-out hover:text-white hover:bg-purple-500/50 hover:border-purple-500/100 hover:backdrop-blur-3xl hover:shadow-[0_0_30px_rgba(168,85,247,0.25)] hover:scale-105 before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-b before:from-white/15 before:to-transparent before:opacity-0 before:transition-opacity before:duration-700 hover:before:opacity-100"
-              >
-                <span className="relative z-10">{link.name}</span>
-              </a>
-            ))}
-          </nav>
+<nav className="hidden md:flex items-center gap-2 lg:gap-5 text-base lg:text-lg font-medium">
+  {links.map((link) => (
+    <a
+      key={link.name}
+      href={link.href}
+      onClick={(e) => {
+        e.preventDefault();
 
+        setActiveLink(link.href);
+
+        document.querySelector(link.href)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }}
+      className={`
+        relative px-4 lg:px-6 py-1.5 rounded-full
+        transition-all duration-500 ease-out
+        before:absolute before:inset-0 before:rounded-full
+        before:bg-gradient-to-b before:from-white/15 before:to-transparent
+
+        ${
+          activeLink === link.href
+            ? `
+              text-white
+              bg-purple-500/50
+              border border-purple-500
+              shadow-[0_0_30px_rgba(168,85,247,0.25)]
+              scale-105
+              before:opacity-100
+            `
+            : `
+              text-zinc-300
+              border border-white/0
+              before:opacity-0
+              hover:text-white
+              hover:bg-purple-500/50
+              hover:border-purple-500
+              hover:shadow-[0_0_30px_rgba(168,85,247,0.25)]
+              hover:scale-105
+              hover:before:opacity-100
+            `
+        }
+      `}
+    >
+      <span className="relative z-10">{link.name}</span>
+    </a>
+  ))}
+</nav>
           {/* Mobile Menu Button */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -155,40 +195,56 @@ export default function Home() {
           </button>
         </div>
 
-      {/* Premium Horizontal Mobile Navigation Dropdown */}
+     {/* Premium Horizontal Mobile Navigation Dropdown */}
 {mobileMenuOpen && (
   <nav className="md:hidden border-t border-white/10 bg-transparent px-4 py-3 flex flex-row gap-2 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]">
     {links.map((link) => (
       <a
         key={link.name}
         href={link.href}
-        onClick={() => setMobileMenuOpen(false)}
-        className="
+        onClick={() => {
+  setActiveLink(link.href);
+}}
+        className={`
           relative
           px-4 py-1.5
           rounded-full
           whitespace-nowrap
           text-sm
           font-medium
-          text-zinc-300
-          border border-white/0
-          transition-all duration-500 ease-out
-          
-          hover:text-white
-          hover:bg-purple-500/40
-          hover:border-purple-500/80
-          hover:shadow-[0_0_20px_rgba(168,85,247,0.2)]
-          active:scale-95
-          
+          transition-all
+          duration-300
+          ease-out
           before:absolute
           before:inset-0
           before:rounded-full
           before:bg-gradient-to-b
           before:from-white/15
           before:to-transparent
-          before:opacity-0
-          hover:before:opacity-100
-        "
+
+          ${
+            activeLink === link.href
+              ? `
+                text-white
+                bg-purple-500/40
+                border border-purple-500/80
+                shadow-[0_0_20px_rgba(168,85,247,0.25)]
+                before:opacity-100
+              `
+              : `
+                text-zinc-300
+                border border-white/0
+                before:opacity-0
+                hover:text-white
+                hover:bg-purple-500/40
+                hover:border-purple-500/80
+                hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]
+                hover:before:opacity-100
+              `
+          }
+
+          active:scale-95
+        `}
       >
         <span className="relative z-10">{link.name}</span>
       </a>
@@ -198,73 +254,88 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-16 lg:py-28 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-        <div className="order-2 lg:order-1 text-center lg:text-left">
-          <span className="inline-block px-4 py-2 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-300 text-sm">
-            My Portfolio
-          </span>
+<section className="max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-16 lg:py-28 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mt-6 lg:mt-8 leading-tight">
-            Bringing Ideas
-            <span className="block text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text">
-              To Life
-            </span>
-          </h1>
+  {/* Left Side */}
+  <div className="order-2 lg:order-1 text-center lg:text-left">
+    <span className="inline-block px-4 py-2 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-300 text-sm">
+      My Portfolio
+    </span>
 
-          <p className="text-zinc-400 mt-6 text-base sm:text-lg leading-7 sm:text-sm max-w-xl mx-auto lg:mx-0">
-            Hi, I'm <b>Abhinav</b>. I create premium YouTube thumbnails,
-            posters, wallpapers, Building Plans and motion graphics with modern,
-            cinematic visuals.
-          </p>
+    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mt-6 lg:mt-8 leading-tight">
+      Bringing Ideas
+      <span className="block text-transparent bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text">
+        To Life
+      </span>
+    </h1>
 
-          <div className="relative flex justify-center items-center order-1 lg:order-2 mt-8 lg:mt-0">
-          {/* Glow */}
-          <div className="absolute w-[280px] sm:w-[480px] h-[280px] sm:h-[480px] rounded-full bg-purple-600/25 blur-[80px] sm:blur-[140px]" />
+    <p className="text-zinc-400 mt-6 text-base sm:text-lg leading-7 max-w-xl mx-auto lg:mx-0">
+      Hi, I'm <b>Abhinav</b>. I create premium YouTube thumbnails,
+      posters, wallpapers, Building Plans and motion graphics with modern,
+      cinematic visuals.
+    </p>
 
-          {/* Circle Frame */}
-          <div className="relative w-[280px] sm:w-[430px] h-[280px] sm:h-[430px] rounded-full overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
-            <Image
-              src="/Mypc.png"
-              alt="Profile"
-              width={450}
-              height={450}
-              className="object-cover object-center translate-y-4 sm:translate-y-8 scale-105 sm:scale-100"
-              priority
-            />
-          </div>
-        </div>
+    <div className="flex justify-center lg:justify-start gap-4 sm:gap-5 mt-8 lg:mt-10">
+      <a
+        href="#portfolio"
+        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15  bg-white/5 hover:bg-purple-500 transition font-semibold"
+      >
+        View Portfolio
+      </a>
 
-          <div className="flex justify-center lg:justify-start gap-4 sm:gap-5 mt-8 lg:mt-10">
-            <a
-              href="#portfolio"
-              className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 hover:bg-purple-500 transition font-semibold"
-            >
-              View Portfolio
-            </a>
-            <a
-              href="#contact"
-              className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 transition"
-            >
-              Hire Me
-            </a>
-          </div>
+      <a
+        href="#contact"
+        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 transition"
+      >
+        Hire Me
+      </a>
+    </div>
 
-          <div className="grid grid-cols-3 gap-3 sm:gap-5 mt-10 lg:mt-14">
-            <div className="rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-5">
-              <h2 className="text-xl sm:text-3xl font-bold text-purple-400">250+</h2>
-              <p className="text-zinc-500 text-xs sm:text-sm mt-1">Projects</p>
-            </div>
-            <div className="rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-5">
-              <h2 className="text-xl sm:text-3xl font-bold text-purple-400">4+</h2>
-              <p className="text-zinc-500 text-xs sm:text-sm mt-1">Years</p>
-            </div>
-            <div className="rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-5">
-              <h2 className="text-xl sm:text-3xl font-bold text-purple-400">100%</h2>
-              <p className="text-zinc-500 text-xs sm:text-sm mt-1">Creative</p>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="grid grid-cols-3 gap-3 sm:gap-5 mt-10 lg:mt-14">
+      <div className="rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-5">
+        <h2 className="text-xl sm:text-3xl font-bold text-purple-400">
+          250+
+        </h2>
+        <p className="text-zinc-500 text-xs sm:text-sm mt-1">Projects</p>
+      </div>
+
+      <div className="rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-5">
+        <h2 className="text-xl sm:text-3xl font-bold text-purple-400">
+          4+
+        </h2>
+        <p className="text-zinc-500 text-xs sm:text-sm mt-1">Years</p>
+      </div>
+
+      <div className="rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-5">
+        <h2 className="text-xl sm:text-3xl font-bold text-purple-400">
+          100%
+        </h2>
+        <p className="text-zinc-500 text-xs sm:text-sm mt-1">Creative</p>
+      </div>
+    </div>
+  </div>
+
+  {/* Right Side */}
+  <div className="order-1 lg:order-2 relative flex justify-center lg:justify-end">
+
+    {/* Glow */}
+    <div className="absolute w-[280px] sm:w-[480px] h-[280px] sm:h-[480px] rounded-full bg-purple-600/25 blur-[80px] sm:blur-[140px]" />
+
+    {/* Circle Frame */}
+    <div className="relative w-[280px] sm:w-[430px] h-[280px] sm:h-[430px] rounded-full overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center">
+      <Image
+        src="/Mypc.png"
+        alt="Profile"
+        width={450}
+        height={450}
+        className="object-cover object-center translate-y-4 sm:translate-y-8 scale-105 sm:scale-100"
+        priority
+      />
+    </div>
+
+  </div>
+
+</section>
 
       {/* About */}
       <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -418,7 +489,7 @@ export default function Home() {
               key={item.title}
               className="group rounded-[24px] sm:rounded-[30px] overflow-hidden border border-white/10 bg-white/5"
             >
-              <div className="overflow-hidden aspect-video relative h-48 sm:h-64">
+              <div className="relative w-full aspect-video overflow-hidden">
                 {item.video ? (
                   <video
                     src={item.video}
