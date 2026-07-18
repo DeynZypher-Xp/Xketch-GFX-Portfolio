@@ -82,8 +82,8 @@ export default function Home() {
   const links = [
     { name: "Home", href: "#home" },
     { name: "About", href: "#about" },
-    { name: "Portfolio", href: "#portfolio" },
-    { name: "Skills", href: "#skills" },
+    { name: "Roms", href: "#Rom" },
+    { name: "Projects", href: "#portfolio" },
     { name: "Contact", href: "#contact" },
   ];
 
@@ -282,14 +282,14 @@ export default function Home() {
     <div className="flex justify-center lg:justify-start gap-4 sm:gap-5 mt-8 lg:mt-10">
       <a
         href="#portfolio"
-        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15  bg-white/5 hover:bg-purple-500 transition font-semibold"
+        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15  bg-white/5 hover:bg-purple-500/90 transition font-semibold"
       >
         View Portfolio
       </a>
 
       <a
         href="#contact"
-        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 transition"
+        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 bg-white/5 hover:bg-purple-500/90 transition"
       >
         Hire Me
       </a>
@@ -332,7 +332,7 @@ export default function Home() {
         alt="Profile"
         width={450}
         height={450}
-        className="object-cover object-center translate-y-4 sm:translate-y-8 scale-105 sm:scale-100"
+        className="object-cover object-center translate-y-8 scale-100"
         priority
       />
     </div>
@@ -340,6 +340,32 @@ export default function Home() {
   </div>
 
 </section>
+
+ {/* Rom Development */}
+      <section id="Rom" className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 lg:pb-12">
+        <div className="rounded-[24px] sm:rounded-[35px] bg-white/5 border border-white/10 p-8 sm:p-12 text-center">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight mb-4">
+            Custom Rom <span className="text-purple-400"> Development</span>
+          </h2>
+
+          <p className="text-zinc-400 mt-4 text-sm sm:text-base max-w-2xl mx-auto">
+            I made Custom Port Roms for Redmi note 12 5G & POCO X5 5G which users can use freely and smoothly.
+          </p>
+           <p className="text-purple-400/90 mt-4 text-sm sm:text-base max-w-2xl mx-auto">
+            Are you intrested in Custom Roms ? Then Take a look at this Button Below.
+           </p>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8 sm:mt-10">
+            <a
+              href="https://zypheros.vercel.app/"
+              target="_blank"
+              className="px-7 py-3.5 text-sm sm:text-base rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 hover:bg-purple-500 text-center transition"
+            >
+              Click Here
+            </a>
+          </div>
+        </div>
+      </section>
 
       {/* About */}
       <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -604,7 +630,7 @@ export default function Home() {
       </section>
 
       {/* Contact */}
-      <section id="contact" className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 lg:pb-24">
+      <section id="contact" className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 lg:pb-12">
         <div className="rounded-[24px] sm:rounded-[35px] bg-white/5 border border-white/10 p-8 sm:p-12 text-center">
           <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight mb-4">
             Let's Work <span className="text-purple-400"> Together</span>
@@ -640,17 +666,27 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 py-8 sm:py-10 text-center text-zinc-500 px-4">
-        <h2 className="text-xl sm:text-2xl font-bold text-white">
-          Xketch <span className="text-purple-400">GFX</span>
-        </h2>
-        <p className="mt-2 text-xs sm:text-sm">
-          Graphic Designer • Motion Artist • Creative Editor
-        </p>
-        <p className="mt-5 text-xs">
-          © {new Date().getFullYear()} Xketch GFX. All Rights Reserved.
-        </p>
-      </footer>
+      <footer className="border-t border-white/10 py-6 px-4">
+  <div className="flex justify-center items-center">
+    <div className="w-[200px] h-[50px] overflow-hidden flex justify-center items-center">
+      <Image
+        src="/XketchPng.png"
+        alt="Xketch GFX"
+        width={300}
+        height={150}
+        className="scale-170"
+      />
+    </div>
+  </div>
+
+  <p className="mt-4 text-center text-zinc-400">
+    Graphic Designer • Architect • Creative Editor
+  </p>
+
+  <p className="mt-2 text-center text-sm text-zinc-400">
+    © 2026 Xketch GFX. All Rights Reserved.
+  </p>
+</footer>
     </main>
   );
 }
