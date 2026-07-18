@@ -254,7 +254,11 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-<section className="max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-16 lg:py-28 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+{/* Hero */}
+<section
+  id="home"
+  className="max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-16 lg:py-28 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center"
+>
 
   {/* Left Side */}
   <div className="order-2 lg:order-1 text-center lg:text-left">
