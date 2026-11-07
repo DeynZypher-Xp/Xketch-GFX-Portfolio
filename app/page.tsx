@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
+import CameraCaptureComponent from "@/components/CameraCapture";
 
 
 const spaceGrotesk = Space_Grotesk({
@@ -54,6 +56,7 @@ export default function Home() {
   const [scrollY, setScrollY] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeLink, setActiveLink] = useState("#home");
+  const [isCameraPopupOpen, setIsCameraPopupOpen] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -81,6 +84,7 @@ export default function Home() {
 
   const links = [
     { name: "Home", href: "#home" },
+    { name: "Live Camera", href: "#camera" },
     { name: "About", href: "#about" },
     { name: "Roms", href: "#Rom" },
     { name: "Projects", href: "#portfolio" },
@@ -94,6 +98,28 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-transparent text-white overflow-x-hidden">
+
+      {/* Camera Experience Pop-up on First Visit */}
+      {isCameraPopupOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-2xl flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-300"
+          role="dialog"
+          aria-modal="true"
+        >
+          {/* Clickable Backdrop Dismiss */}
+          <div
+            className="fixed inset-0 -z-10"
+            onClick={() => setIsCameraPopupOpen(false)}
+          />
+
+          <div className="relative w-full max-w-3xl my-auto animate-in zoom-in-95 duration-200">
+            <CameraCaptureComponent
+              onClose={() => setIsCameraPopupOpen(false)}
+              isModal={true}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Scroll Reactive Premium Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden bg-black">
@@ -137,6 +163,11 @@ export default function Home() {
       href={link.href}
       onClick={(e) => {
         e.preventDefault();
+
+        if (link.href === "#camera") {
+          setIsCameraPopupOpen(true);
+          return;
+        }
 
         setActiveLink(link.href);
 
@@ -203,8 +234,13 @@ export default function Home() {
         key={link.name}
         href={link.href}
         onClick={() => {
-  setActiveLink(link.href);
-}}
+          if (link.href === "#camera") {
+            setIsCameraPopupOpen(true);
+            setMobileMenuOpen(false);
+            return;
+          }
+          setActiveLink(link.href);
+        }}
         className={`
           relative
           px-4 py-1.5
@@ -279,13 +315,21 @@ export default function Home() {
       cinematic visuals.
     </p>
 
-    <div className="flex justify-center lg:justify-start gap-4 sm:gap-5 mt-8 lg:mt-10">
+    <div className="flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4 mt-8 lg:mt-10">
       <a
         href="#portfolio"
-        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15  bg-white/5 hover:bg-purple-500/90 transition font-semibold"
+        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 bg-white/5 hover:bg-purple-500/90 transition font-semibold"
       >
         View Portfolio
       </a>
+
+      <button
+        type="button"
+        onClick={() => setIsCameraPopupOpen(true)}
+        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-purple-500/40 bg-purple-600/30 hover:bg-purple-500 text-white transition font-semibold shadow-[0_0_20px_rgba(168,85,247,0.3)] cursor-pointer"
+      >
+        Live Camera
+      </button>
 
       <a
         href="#contact"
@@ -365,6 +409,23 @@ export default function Home() {
             </a>
           </div>
         </div>
+      </section>
+
+      {/* Interactive Live Camera Section */}
+      <section id="camera" className="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-20">
+        <div className="text-center mb-6 sm:mb-10">
+          <span className="inline-block px-4 py-1.5 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-300 text-xs sm:text-sm font-medium mb-3">
+            Interactive Experience
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
+            Live Camera <span className="text-purple-400">Capture Studio</span>
+          </h2>
+          <p className="text-zinc-400 mt-3 text-sm sm:text-base max-w-xl mx-auto">
+            Try our 100% consent-based camera system. Capture a selfie preview, upload it to Supabase Storage, and inspect it instantly on the real-time admin gallery.
+          </p>
+        </div>
+
+        <CameraCaptureComponent />
       </section>
 
       {/* About */}
@@ -686,6 +747,16 @@ export default function Home() {
   <p className="mt-2 text-center text-sm text-zinc-400">
     © 2026 Xketch GFX. All Rights Reserved.
   </p>
+
+  <div className="flex items-center justify-center gap-4 mt-3 text-xs text-zinc-400">
+    <Link href="/camera" className="hover:text-purple-300 transition">
+      Camera Studio
+    </Link>
+    <span>•</span>
+    <Link href="/admin" className="hover:text-purple-300 transition">
+      Admin Portal
+    </Link>
+  </div>
 </footer>
     </main>
   );
