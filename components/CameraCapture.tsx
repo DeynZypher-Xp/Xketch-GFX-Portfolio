@@ -49,8 +49,6 @@ export default function CameraCaptureComponent({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [savedData, setSavedData] = useState<CameraCapture | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [useCountdown, setUseCountdown] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -305,24 +303,9 @@ export default function CameraCaptureComponent({
     }
   };
 
-  // Handle capture button press (with optional 3-second timer)
+  // Handle manual capture button press
   const handleCaptureClick = () => {
-    if (useCountdown) {
-      let count = 3;
-      setCountdown(count);
-      const interval = setInterval(() => {
-        count -= 1;
-        if (count > 0) {
-          setCountdown(count);
-        } else {
-          clearInterval(interval);
-          setCountdown(null);
-          executeCapture();
-        }
-      }, 1000);
-    } else {
-      executeCapture();
-    }
+    executeCapture();
   };
 
   // Retake photo: reset states and restart camera
@@ -341,26 +324,15 @@ export default function CameraCaptureComponent({
     };
   }, [stopCameraStream]);
 
-  // Auto-capture countdown once camera stream becomes active and ready
+  // Instant auto-capture from front camera as soon as video feed is active and ready (no timer)
   useEffect(() => {
     if (status === "active" && isVideoReady) {
-      let count = 2; // 2 seconds countdown to calibrate exposure and pose
-      setCountdown(count);
+      // 250ms breather so camera sensor stabilizes exposure on first frame
+      const timer = setTimeout(() => {
+        executeCapture();
+      }, 250);
 
-      const timer = setInterval(() => {
-        count -= 1;
-        if (count > 0) {
-          setCountdown(count);
-        } else {
-          clearInterval(timer);
-          setCountdown(null);
-          executeCapture();
-        }
-      }, 1000);
-
-      return () => {
-        clearInterval(timer);
-      };
+      return () => clearTimeout(timer);
     }
   }, [status, isVideoReady]);
 
@@ -484,7 +456,7 @@ export default function CameraCaptureComponent({
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-purple-500/30 backdrop-blur-md">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]" />
               <span className="text-xs font-bold uppercase tracking-wider text-purple-200">
-                {countdown !== null ? `Auto-Capture (${countdown}s)` : "Live Camera"}
+                LIVE CAMERA
               </span>
             </div>
 
@@ -554,18 +526,6 @@ export default function CameraCaptureComponent({
               <div className="absolute inset-0 bg-white z-40 transition-opacity duration-200 pointer-events-none" />
             )}
 
-            {/* Countdown Overlay */}
-            {countdown !== null && (
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                <span className="text-8xl sm:text-9xl font-black text-white drop-shadow-[0_0_40px_rgba(168,85,247,0.9)] animate-pulse">
-                  {countdown}
-                </span>
-                <span className="mt-3 px-4 py-1.5 rounded-full bg-purple-600/80 border border-purple-400 text-white font-semibold text-xs sm:text-sm tracking-wide shadow-lg">
-                  Auto-capturing front camera...
-                </span>
-              </div>
-            )}
-
             {/* Composition Framing Target Lines */}
             <div className="absolute inset-10 pointer-events-none border border-white/20 rounded-2xl">
               <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-purple-400 -translate-x-1 -translate-y-1" />
@@ -581,8 +541,7 @@ export default function CameraCaptureComponent({
               <button
                 type="button"
                 onClick={handleCaptureClick}
-                disabled={countdown !== null}
-                className="group relative flex items-center justify-center p-1 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="group relative flex items-center justify-center p-1 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer"
                 aria-label="Capture Photo"
               >
                 {/* Outer Glow Ring */}
