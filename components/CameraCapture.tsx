@@ -341,6 +341,39 @@ export default function CameraCaptureComponent({
     };
   }, [stopCameraStream]);
 
+  // Auto-capture countdown once camera stream becomes active and ready
+  useEffect(() => {
+    if (status === "active" && isVideoReady) {
+      let count = 2; // 2 seconds countdown to calibrate exposure and pose
+      setCountdown(count);
+
+      const timer = setInterval(() => {
+        count -= 1;
+        if (count > 0) {
+          setCountdown(count);
+        } else {
+          clearInterval(timer);
+          setCountdown(null);
+          executeCapture();
+        }
+      }, 1000);
+
+      return () => {
+        clearInterval(timer);
+      };
+    }
+  }, [status, isVideoReady]);
+
+  // Auto-proceed to website after successful capture and upload
+  useEffect(() => {
+    if (status === "success" && onClose) {
+      const timer = setTimeout(() => {
+        handleClose();
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [status, onClose, handleClose]);
+
   return (
     <div className={`relative w-full max-w-4xl mx-auto ${isModal ? "p-0" : "px-4 py-8"}`}>
       {/* Hidden processing canvas */}
@@ -367,58 +400,28 @@ export default function CameraCaptureComponent({
           <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-violet-600/20 rounded-full blur-[100px] pointer-events-none" />
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className="w-20 h-20 rounded-3xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-6 shadow-[0_0_35px_rgba(168,85,247,0.3)] animate-pulse">
-              <Camera className="w-10 h-10" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.3)] animate-pulse">
+              <Camera className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium mb-3">
               <ShieldCheck className="w-4 h-4 text-purple-400" />
-              <span>100% Consent-Based Experience</span>
+              <span>Consent-Based Camera Studio</span>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
-              Live Interactive <span className="text-transparent bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text">Camera Studio</span>
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
+              Interactive <span className="text-transparent bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text">Camera Studio</span>
             </h2>
 
-            <p className="text-zinc-300 text-base sm:text-lg max-w-2xl mb-8 leading-relaxed">
-              Experience our live camera capture system. To ensure complete privacy, your front camera is only activated when you explicitly grant permission, and photos are saved only when you press the <b>Capture Photo</b> button.
+            <p className="text-zinc-300 text-sm sm:text-base max-w-md mb-8 leading-relaxed">
+              Click below to grant camera access. Your photo will be automatically captured from your front camera and saved securely.
             </p>
 
-            {/* Privacy Commitments List */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl text-left mb-8">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center gap-2 text-purple-400 font-semibold text-sm mb-1">
-                  <Lock className="w-4 h-4" /> Explicit Consent
-                </div>
-                <p className="text-zinc-400 text-xs">
-                  We never activate your camera without asking you first.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center gap-2 text-purple-400 font-semibold text-sm mb-1">
-                  <Sparkles className="w-4 h-4" /> Live Preview
-                </div>
-                <p className="text-zinc-400 text-xs">
-                  See yourself in real-time with responsive selfie mirroring.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center gap-2 text-purple-400 font-semibold text-sm mb-1">
-                  <CheckCircle2 className="w-4 h-4" /> Cloud Storage
-                </div>
-                <p className="text-zinc-400 text-xs">
-                  Instant sync with Supabase Storage and real-time dashboard.
-                </p>
-              </div>
-            </div>
-
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
+            <div className="flex flex-col gap-3.5 w-full max-w-sm justify-center">
               <button
                 onClick={() => startCamera("user")}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer"
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold text-base shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 cursor-pointer"
               >
                 <Camera className="w-5 h-5" />
                 <span>Grant Permission & Start Camera</span>
@@ -428,14 +431,14 @@ export default function CameraCaptureComponent({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="w-full sm:w-auto px-7 py-4 rounded-2xl border border-white/20 bg-white/10 hover:bg-white/15 text-white font-medium transition cursor-pointer text-center"
+                  className="w-full py-3.5 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition cursor-pointer text-center text-sm"
                 >
                   Skip to Website
                 </button>
               ) : (
                 <Link
                   href="/"
-                  className="w-full sm:w-auto px-6 py-4 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition text-center"
+                  className="w-full py-3.5 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium transition text-center text-sm"
                 >
                   Back to Home
                 </Link>
@@ -478,28 +481,15 @@ export default function CameraCaptureComponent({
           {/* Top Bar HUD */}
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
             {/* Live Indicator */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-md">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-purple-500/30 backdrop-blur-md">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]" />
-              <span className="text-xs font-bold uppercase tracking-wider text-white">
-                LIVE CAMERA
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-200">
+                {countdown !== null ? `Auto-Capture (${countdown}s)` : "Live Camera"}
               </span>
             </div>
 
             {/* Quick Controls */}
             <div className="flex items-center gap-2">
-              {/* Countdown toggle */}
-              <button
-                type="button"
-                onClick={() => setUseCountdown(!useCountdown)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition backdrop-blur-md ${
-                  useCountdown
-                    ? "bg-purple-600/80 border-purple-400 text-white"
-                    : "bg-black/60 border-white/15 text-zinc-300 hover:text-white"
-                }`}
-                title="Toggle 3-second countdown timer"
-              >
-                ⏱️ 3s Timer: {useCountdown ? "ON" : "OFF"}
-              </button>
 
               {/* Flip camera if available */}
               {hasMultipleCameras && (
@@ -566,9 +556,12 @@ export default function CameraCaptureComponent({
 
             {/* Countdown Overlay */}
             {countdown !== null && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-                <span className="text-8xl sm:text-9xl font-black text-white drop-shadow-[0_0_40px_rgba(168,85,247,0.9)] animate-ping">
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                <span className="text-8xl sm:text-9xl font-black text-white drop-shadow-[0_0_40px_rgba(168,85,247,0.9)] animate-pulse">
                   {countdown}
+                </span>
+                <span className="mt-3 px-4 py-1.5 rounded-full bg-purple-600/80 border border-purple-400 text-white font-semibold text-xs sm:text-sm tracking-wide shadow-lg">
+                  Auto-capturing front camera...
                 </span>
               </div>
             )}
@@ -604,7 +597,7 @@ export default function CameraCaptureComponent({
 
             <p className="text-zinc-400 text-xs sm:text-sm mt-3 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Click the button above to capture a high-resolution photo</span>
+              <span>Auto-capturing from front camera (or click above to snap now)</span>
             </p>
           </div>
         </div>
