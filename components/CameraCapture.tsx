@@ -284,10 +284,6 @@ export default function CameraCaptureComponent({
           <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-violet-600/20 rounded-full blur-[100px] pointer-events-none" />
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-5 shadow-[0_0_35px_rgba(168,85,247,0.3)] animate-pulse">
-              <Camera className="w-8 h-8 sm:w-10 sm:h-10" />
-            </div>
-
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium mb-3">
               <ShieldCheck className="w-4 h-4 text-purple-400" />
               <span>Hey , Wlecome To My Website</span>
@@ -320,10 +316,7 @@ export default function CameraCaptureComponent({
                     <span>Photo Saved! Snap Again</span>
                   </>
                 ) : (
-                  <>
-                    <Camera className="w-5 h-5 text-purple-200" />
-                    <span>Click here to Continue</span>
-                  </>
+                  <span>Click here to Continue</span>
                 )}
               </button>
             </div>
