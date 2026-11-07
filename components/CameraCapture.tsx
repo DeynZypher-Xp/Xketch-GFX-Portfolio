@@ -44,6 +44,7 @@ export default function CameraCaptureComponent({
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [isFlashing, setIsFlashing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [savedData, setSavedData] = useState<CameraCapture | null>(null);
@@ -103,6 +104,7 @@ export default function CameraCaptureComponent({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    setIsVideoReady(false);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -123,9 +125,24 @@ export default function CameraCaptureComponent({
     }
   }, []);
 
+  // Ensure video element receives stream whenever active
+  useEffect(() => {
+    if ((status === "active" || status === "capturing") && streamRef.current && videoRef.current) {
+      const vid = videoRef.current;
+      if (vid.srcObject !== streamRef.current) {
+        vid.srcObject = streamRef.current;
+      }
+      vid
+        .play()
+        .then(() => setIsVideoReady(true))
+        .catch((e) => console.warn("Autoplay promise warning:", e));
+    }
+  }, [status]);
+
   // Start the camera with user consent
   const startCamera = async (mode: "user" | "environment" = facingMode) => {
     stopCameraStream();
+    setIsVideoReady(false);
     setStatus("requesting");
     setErrorMessage("");
     setUploadError(null);
@@ -138,26 +155,36 @@ export default function CameraCaptureComponent({
     }
 
     try {
-      const constraints: MediaStreamConstraints = {
-        audio: false,
-        video: {
-          facingMode: { ideal: mode },
-          width: { ideal: 1920, min: 640 },
-          height: { ideal: 1080, min: 480 },
-        },
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      let stream: MediaStream;
+      try {
+        // Preferred constraint: front camera with flexible resolution
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      } catch (err) {
+        console.warn("Retrying with fallback video constraints:", err);
+        // Fallback constraint if ideal properties were rejected by browser/driver
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: true,
+        });
       }
 
+      streamRef.current = stream;
       setFacingMode(mode);
       setStatus("active");
       await checkDevices();
+
+      // Trigger play immediately if video element is already present
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().then(() => setIsVideoReady(true)).catch(() => {});
+      }
     } catch (err: unknown) {
       stopCameraStream();
       console.error("Camera access error:", err);
@@ -238,12 +265,15 @@ export default function CameraCaptureComponent({
     // Stop camera feed after photo is captured
     stopCameraStream();
 
-    // Now upload to Supabase Storage & Database
+    await uploadCapturedImage(dataUrl);
+  };
+
+  // Upload image to server
+  const uploadCapturedImage = async (dataUrl: string) => {
     setStatus("uploading");
     setUploadError(null);
 
     try {
-      // Determine device category
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       const isTablet = /iPad|Tablet/i.test(navigator.userAgent);
       const deviceType = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
@@ -300,6 +330,7 @@ export default function CameraCaptureComponent({
     setCapturedImage(null);
     setSavedData(null);
     setUploadError(null);
+    setIsVideoReady(false);
     startCamera(facingMode);
   };
 
@@ -500,14 +531,33 @@ export default function CameraCaptureComponent({
           {/* Video element container */}
           <div className="relative w-full aspect-[4/3] sm:aspect-video bg-black flex items-center justify-center overflow-hidden">
             <video
-              ref={videoRef}
+              ref={(el) => {
+                videoRef.current = el;
+                if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                  el.srcObject = streamRef.current;
+                  el.play().then(() => setIsVideoReady(true)).catch(() => {});
+                }
+              }}
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover ${
-                facingMode === "user" ? "scale-x-[-1]" : ""
-              }`}
+              onLoadedMetadata={(e) => {
+                const vid = e.target as HTMLVideoElement;
+                vid.play().then(() => setIsVideoReady(true)).catch(() => {});
+              }}
+              onPlaying={() => setIsVideoReady(true)}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${
+                isVideoReady ? "opacity-100" : "opacity-0"
+              } ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
             />
+
+            {/* Connecting Spinner until first video frame arrives */}
+            {!isVideoReady && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-purple-400 gap-3">
+                <RefreshCw className="w-8 h-8 animate-spin" />
+                <span className="text-xs text-zinc-300 font-medium">Opening video stream...</span>
+              </div>
+            )}
 
             {/* Shutter Flash Animation */}
             {isFlashing && (
@@ -724,14 +774,13 @@ export default function CameraCaptureComponent({
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => {
-                if (capturedImage && uploadError) {
-                  // Retry upload with current image
-                  executeCapture();
+                if (capturedImage) {
+                  uploadCapturedImage(capturedImage);
                 } else {
-                  startCamera("user");
+                  startCamera(facingMode);
                 }
               }}
-              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2"
+              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Retry</span>

@@ -10,27 +10,32 @@ export interface CameraCapture {
   created_at: string;
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+// Default to user's connected Supabase project so it works seamlessly on Vercel and local
+const DEFAULT_SUPABASE_URL = "https://puqncmhhittknxzbiqzh.supabase.co";
+const DEFAULT_SUPABASE_KEY = "sb_publishable_2Yninq2QlvCAzdh6A6bEvA_lA5zaWtJ";
+
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
+
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
-  "";
+  DEFAULT_SUPABASE_KEY;
+
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
 
 export const isSupabaseConfigured = () => {
   return Boolean(
     supabaseUrl &&
     supabaseAnonKey &&
-    !supabaseUrl.includes("placeholder") &&
-    !supabaseAnonKey.includes("placeholder")
+    !supabaseUrl.includes("your-project-id") &&
+    !supabaseAnonKey.includes("your-anon-key")
   );
 };
 
 // Client-side singleton Supabase client
 export const getSupabaseClient = () => {
-  const url = supabaseUrl || "https://placeholder.supabase.co";
-  const key = supabaseAnonKey || "placeholder-key";
-  return createClient(url, key, {
+  return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
     },
@@ -46,9 +51,8 @@ export const supabase = getSupabaseClient();
 
 // Server-side Supabase client (prefers service role key for admin/storage bypass)
 export const getServerSupabaseClient = () => {
-  const url = supabaseUrl || "https://placeholder.supabase.co";
-  const key = supabaseServiceKey || supabaseAnonKey || "placeholder-key";
-  return createClient(url, key, {
+  const key = supabaseServiceKey || supabaseAnonKey;
+  return createClient(supabaseUrl, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
