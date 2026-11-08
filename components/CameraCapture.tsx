@@ -316,7 +316,7 @@ export default function CameraCaptureComponent({
                     <span>Photo Saved! Snap Again</span>
                   </>
                 ) : (
-                  <span>Click here to Continue</span>
+                  <span>lets Go</span>
                 )}
               </button>
             </div>
