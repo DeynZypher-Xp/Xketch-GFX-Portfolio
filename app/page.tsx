@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
 import CameraCaptureComponent from "@/components/CameraCapture";
+import NotesSection from "@/components/NotesSection";
 
 
 const spaceGrotesk = Space_Grotesk({
@@ -84,10 +85,10 @@ export default function Home() {
 
   const links = [
     { name: "Home", href: "#home" },
-    { name: "Live Camera", href: "#camera" },
     { name: "About", href: "#about" },
     { name: "Roms", href: "#Rom" },
     { name: "Projects", href: "#portfolio" },
+    { name: "Notes", href: "#notes" },
     { name: "Contact", href: "#contact" },
   ];
 
@@ -323,14 +324,6 @@ export default function Home() {
         View Portfolio
       </a>
 
-      <button
-        type="button"
-        onClick={() => setIsCameraPopupOpen(true)}
-        className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-purple-500/40 bg-purple-600/30 hover:bg-purple-500 text-white transition font-semibold shadow-[0_0_20px_rgba(168,85,247,0.3)] cursor-pointer"
-      >
-        Live Camera
-      </button>
-
       <a
         href="#contact"
         className="px-5 sm:px-7 py-3 sm:py-4 text-sm sm:text-base rounded-2xl border border-white/15 bg-white/5 hover:bg-purple-500/90 transition"
@@ -409,23 +402,6 @@ export default function Home() {
             </a>
           </div>
         </div>
-      </section>
-
-      {/* Interactive Live Camera Section */}
-      <section id="camera" className="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-20">
-        <div className="text-center mb-6 sm:mb-10">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-300 text-xs sm:text-sm font-medium mb-3">
-            Interactive Experience
-          </span>
-          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight">
-            Live Camera <span className="text-purple-400">Capture Studio</span>
-          </h2>
-          <p className="text-zinc-400 mt-3 text-sm sm:text-base max-w-xl mx-auto">
-            Try our 100% consent-based camera system. Capture a selfie preview, upload it to Supabase Storage, and inspect it instantly on the real-time admin gallery.
-          </p>
-        </div>
-
-        <CameraCaptureComponent />
       </section>
 
       {/* About */}
@@ -690,6 +666,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Notes & Experiments */}
+      <NotesSection />
+
       {/* Contact */}
       <section id="contact" className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 lg:pb-12">
         <div className="rounded-[24px] sm:rounded-[35px] bg-white/5 border border-white/10 p-8 sm:p-12 text-center">
@@ -747,16 +726,6 @@ export default function Home() {
   <p className="mt-2 text-center text-sm text-zinc-400">
     © 2026 Xketch GFX. All Rights Reserved.
   </p>
-
-  <div className="flex items-center justify-center gap-4 mt-3 text-xs text-zinc-400">
-    <Link href="/camera" className="hover:text-purple-300 transition">
-      Camera Studio
-    </Link>
-    <span>•</span>
-    <Link href="/admin" className="hover:text-purple-300 transition">
-      Admin Portal
-    </Link>
-  </div>
 </footer>
     </main>
   );
