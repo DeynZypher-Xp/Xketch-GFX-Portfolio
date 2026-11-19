@@ -126,9 +126,9 @@ export default function Home() {
       {/* 3D Cinematic Black Hole */}
       <Cinematic3DBackground />
 
-      {/* Dark Blur & Readability Vignette Overlay */}
+      {/* Subtle Cosmic Vignette (Leaves Black Hole 100% Crisp & High-Contrast) */}
       <div
-        className="fixed inset-0 -z-10 pointer-events-none bg-black/45 backdrop-blur-[2px] bg-gradient-to-b from-black/75 via-black/35 to-black/85"
+        className="fixed inset-0 -z-10 pointer-events-none bg-gradient-to-b from-black/60 via-transparent to-black/70"
         aria-hidden="true"
       />
 

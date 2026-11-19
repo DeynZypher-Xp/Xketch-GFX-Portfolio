@@ -13,7 +13,7 @@ export default function Cinematic3DBackground() {
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        alpha: true,
+        alpha: false,
         antialias: true,
         powerPreference: "high-performance",
       });
@@ -27,150 +27,123 @@ export default function Cinematic3DBackground() {
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    // Orthographic camera ensures 100% full-screen edge-to-edge coverage with ZERO borders
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    // Perspective Camera for true 3D spatial depth & parallax
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      100
-    );
-    camera.position.set(0, 0, 10);
-
-    const masterGroup = new THREE.Group();
-    scene.add(masterGroup);
-
-    // --- 1. Load the Exact Gargantua Black Hole Texture ---
-    const loader = new THREE.TextureLoader();
-    const texture = loader.load("/blackhole-purple.png", (tex) => {
+    const textureLoader = new THREE.TextureLoader();
+    const blackHoleTexture = textureLoader.load("/blackhole-purple.png", (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
-      tex.generateMipmaps = true;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
     });
 
-    // Mesh sized to match aspect ratio (1024 x 576 -> 16:9)
-    const planeGeo = new THREE.PlaneGeometry(10.2, 5.74);
-    const planeMat = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0.95,
+    // Fullscreen borderless shader quad
+    const vertexShader = `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentShader = `
+      precision highp float;
+      varying vec2 vUv;
+
+      uniform sampler2D u_texture;
+      uniform vec2 u_resolution;
+      uniform float u_time;
+      uniform float u_scroll;
+      uniform vec2 u_mouse;
+
+      // Hash helper for cosmic stardust
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+
+      void main() {
+        // Fullscreen aspect-ratio cover mapping (object-fit: cover equivalent)
+        float screenAspect = u_resolution.x / u_resolution.y;
+        const float imgAspect = 1024.0 / 576.0; // 16:9
+
+        vec2 uv = vUv - 0.5;
+
+        if (screenAspect > imgAspect) {
+          uv.y *= (screenAspect / imgAspect);
+        } else {
+          uv.x *= (imgAspect / screenAspect);
+        }
+
+        // Interactive 3D mouse parallax (smooth tilt/panning)
+        uv -= u_mouse * 0.035;
+
+        // Cinematic scroll zoom and trajectory
+        float zoom = 1.0 - u_scroll * 0.14;
+        uv *= zoom;
+        uv.y += u_scroll * 0.09;
+        uv.x += u_scroll * 0.05;
+
+        uv += 0.5;
+
+        vec3 color = vec3(0.0);
+
+        // Sample the exact Interstellar Gargantua Black Hole
+        if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) {
+          vec4 texColor = texture2D(u_texture, uv);
+          color = texColor.rgb;
+
+          // Add radiant cosmic breathing pulse on the glowing filaments
+          float pulse = sin(u_time * 1.6) * 0.05;
+          color += color * pulse;
+        }
+
+        // --- Deep Cosmic Stardust Particles in 3D Space ---
+        vec2 starCoord = vUv * vec2(screenAspect * 40.0, 40.0);
+        // Star movement reacting to time and scroll
+        starCoord.y += u_time * 0.2 + u_scroll * 15.0;
+        starCoord.x += sin(u_time * 0.1) * 2.0;
+
+        vec2 id = floor(starCoord);
+        float h = hash(id);
+        if (h > 0.985) {
+          vec2 localPos = fract(starCoord) - 0.5;
+          float starDist = length(localPos);
+          float starGlow = smoothstep(0.08, 0.0, starDist);
+          float twinkle = sin(u_time * 3.0 + h * 6.28) * 0.5 + 0.5;
+
+          vec3 starCol = mix(vec3(0.85, 0.65, 1.0), vec3(0.4, 0.85, 1.0), hash(id + 1.0));
+          color += starCol * starGlow * twinkle * 0.8;
+        }
+
+        // Final filmic contrast
+        color = pow(color, vec3(0.96));
+
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `;
+
+    const uniforms = {
+      u_texture: { value: blackHoleTexture },
+      u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      u_time: { value: 0 },
+      u_scroll: { value: 0 },
+      u_mouse: { value: new THREE.Vector2(0, 0) },
+    };
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms,
+      depthTest: false,
       depthWrite: false,
     });
-    const blackHoleMesh = new THREE.Mesh(planeGeo, planeMat);
-    masterGroup.add(blackHoleMesh);
 
-    // --- 2. Ambient Radiant Purple Bloom Layer (Soft Glow Behind Black Hole) ---
-    const glowGeo = new THREE.PlaneGeometry(14, 8);
-    const glowCanvas = document.createElement("canvas");
-    glowCanvas.width = 256;
-    glowCanvas.height = 256;
-    const ctx = glowCanvas.getContext("2d");
-    if (ctx) {
-      const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
-      grad.addColorStop(0, "rgba(168, 85, 247, 0.45)"); // Brand Purple
-      grad.addColorStop(0.4, "rgba(124, 58, 237, 0.25)"); // Violet
-      grad.addColorStop(0.7, "rgba(217, 70, 239, 0.12)"); // Fuchsia
-      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 256, 256);
-    }
-    const glowTexture = new THREE.CanvasTexture(glowCanvas);
-    const glowMat = new THREE.MeshBasicMaterial({
-      map: glowTexture,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.8,
-    });
-    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-    glowMesh.position.set(1.5, 0.2, -0.2); // Positioned behind the black hole shadow
-    masterGroup.add(glowMesh);
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    const quad = new THREE.Mesh(geometry, material);
+    scene.add(quad);
 
-    // --- 3. Swirling 3D Relativistic Orbiting Particles ---
-    // 800 physical 3D space particles swirling in a vortex around the black hole plane
-    const particleCount = 850;
-    const particleGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const radii = new Float32Array(particleCount);
-    const angles = new Float32Array(particleCount);
-    const speeds = new Float32Array(particleCount);
-    const zHeights = new Float32Array(particleCount);
-
-    const cWhite = new THREE.Color(0xf5d0fe);
-    const cPurple = new THREE.Color(0xa855f7);
-    const cCyan = new THREE.Color(0x38bdf8);
-
-    for (let i = 0; i < particleCount; i++) {
-      const r = 2.0 + Math.pow(Math.random(), 1.5) * 6.5;
-      const angle = Math.random() * Math.PI * 2;
-      const speed = (1.8 / Math.sqrt(r)) * 0.012;
-      const z = (Math.random() - 0.5) * 1.8;
-
-      radii[i] = r;
-      angles[i] = angle;
-      speeds[i] = speed;
-      zHeights[i] = z;
-
-      positions[i * 3] = 1.2 + Math.cos(angle) * r;
-      positions[i * 3 + 1] = Math.sin(angle) * (r * 0.42);
-      positions[i * 3 + 2] = z;
-
-      const pick = Math.random();
-      const col = pick < 0.6 ? cPurple : pick < 0.85 ? cCyan : cWhite;
-      colors[i * 3] = col.r;
-      colors[i * 3 + 1] = col.g;
-      colors[i * 3 + 2] = col.b;
-    }
-
-    particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    particleGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.045,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.75,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    masterGroup.add(particles);
-
-    // --- 4. Deep Space Starfield (1,200 Distant Stars) ---
-    const starCount = 1200;
-    const starGeo = new THREE.BufferGeometry();
-    const starPositions = new Float32Array(starCount * 3);
-    const starColors = new Float32Array(starCount * 3);
-
-    for (let i = 0; i < starCount; i++) {
-      starPositions[i * 3] = (Math.random() - 0.5) * 45;
-      starPositions[i * 3 + 1] = (Math.random() - 0.5) * 45;
-      starPositions[i * 3 + 2] = -5 - Math.random() * 25;
-
-      const isPurple = Math.random() < 0.5;
-      const c = isPurple ? cPurple : Math.random() < 0.5 ? cCyan : cWhite;
-      starColors[i * 3] = c.r;
-      starColors[i * 3 + 1] = c.g;
-      starColors[i * 3 + 2] = c.b;
-    }
-
-    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-    starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
-
-    const starMat = new THREE.PointsMaterial({
-      size: 0.035,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const stars = new THREE.Points(starGeo, starMat);
-    scene.add(stars);
-
-    // --- State & Interaction Variables ---
     let targetScroll = 0;
     let currentScroll = 0;
     let targetMouseX = 0;
@@ -194,26 +167,16 @@ export default function Cinematic3DBackground() {
     const handleResize = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-      // Responsive scale for mobile vs desktop
-      if (width < 768) {
-        masterGroup.scale.setScalar(0.72);
-      } else {
-        masterGroup.scale.setScalar(1.0);
-      }
+      uniforms.u_resolution.value.set(width, height);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("resize", handleResize);
     handleScroll();
-    handleResize();
 
-    // --- Animation Loop ---
     let animationFrameId: number;
     const clock = new THREE.Clock();
 
@@ -226,42 +189,9 @@ export default function Cinematic3DBackground() {
       currentMouseX += (targetMouseX - currentMouseX) * 0.04;
       currentMouseY += (targetMouseY - currentMouseY) * 0.04;
 
-      // Rotate orbiting relativistic particles
-      const posAttr = particleGeo.attributes.position as THREE.BufferAttribute;
-      const posArray = posAttr.array as Float32Array;
-      const scrollBoost = 1 + Math.abs(targetScroll - currentScroll) * 8;
-
-      for (let i = 0; i < particleCount; i++) {
-        angles[i] += speeds[i] * scrollBoost;
-        const r = radii[i];
-        posArray[i * 3] = 1.2 + Math.cos(angles[i]) * r;
-        posArray[i * 3 + 1] = Math.sin(angles[i]) * (r * 0.42);
-      }
-      posAttr.needsUpdate = true;
-
-      // Subtle breathing pulse on the radiant purple bloom
-      glowMesh.scale.setScalar(1 + Math.sin(elapsedTime * 1.5) * 0.04);
-
-      // --- 3D Spatial Tilt & Cinematic Scroll Trajectory ---
-      // 1. Mouse 3D Parallax Tilt
-      masterGroup.rotation.y = currentMouseX * 0.18 + currentScroll * 0.25;
-      masterGroup.rotation.x = -currentMouseY * 0.12 - currentScroll * 0.15;
-      masterGroup.rotation.z = Math.sin(currentScroll * Math.PI) * 0.05;
-
-      // 2. Cinematic Lateral Drift & Scale
-      masterGroup.position.x =
-        Math.sin(currentScroll * Math.PI * 1.8) * 1.2 + currentMouseX * 0.4;
-      masterGroup.position.y =
-        -currentScroll * 1.2 + Math.cos(elapsedTime * 0.8) * 0.08 + currentMouseY * 0.3;
-
-      // 3. Camera Depth & Parallax
-      camera.position.z = 10 - Math.sin(currentScroll * Math.PI) * 1.8;
-      camera.position.x = currentMouseX * 0.35;
-      camera.position.y = currentMouseY * 0.25;
-      camera.lookAt(masterGroup.position.x * 0.3, masterGroup.position.y * 0.3, 0);
-
-      // Distant stars slow drift
-      stars.rotation.y = elapsedTime * 0.01 + currentScroll * 0.2;
+      uniforms.u_time.value = elapsedTime;
+      uniforms.u_scroll.value = currentScroll;
+      uniforms.u_mouse.value.set(currentMouseX, currentMouseY);
 
       renderer.render(scene, camera);
     };
@@ -278,16 +208,9 @@ export default function Cinematic3DBackground() {
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
-      planeGeo.dispose();
-      planeMat.dispose();
-      texture.dispose();
-      glowGeo.dispose();
-      glowMat.dispose();
-      glowTexture.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
-      starGeo.dispose();
-      starMat.dispose();
+      geometry.dispose();
+      material.dispose();
+      blackHoleTexture.dispose();
     };
   }, []);
 
