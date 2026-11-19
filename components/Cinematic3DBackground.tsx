@@ -13,7 +13,7 @@ export default function Cinematic3DBackground() {
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        alpha: true,
+        alpha: false, // Deep black cosmic space background
         antialias: true,
         powerPreference: "high-performance",
       });
@@ -22,13 +22,13 @@ export default function Cinematic3DBackground() {
     }
 
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    // High-performance Gravitational Raymarching Shader for Gargantua Black Hole
+    // Exact Interstellar Gargantua Ray-Bending Shader
     const vertexShader = `
       varying vec2 vUv;
       void main() {
@@ -46,52 +46,128 @@ export default function Cinematic3DBackground() {
       uniform float u_scroll;
       uniform vec2 u_mouse;
 
-      // Pseudo-random & noise helpers for disk striations and plasma filaments
+      // Hash and Noise generators for accretion disk filaments & turbulence
       float hash(float n) {
         return fract(sin(n) * 43758.5453123);
       }
 
-      float noise(vec2 x) {
-        vec2 p = floor(x);
-        vec2 f = fract(x);
+      float hash2d(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
         f = f * f * (3.0 - 2.0 * f);
-        float n = p.x + p.y * 57.0;
-        return mix(mix(hash(n + 0.0), hash(n + 1.0), f.x),
-                   mix(hash(n + 57.0), hash(n + 58.0), f.x), f.y);
+        float a = hash2d(i);
+        float b = hash2d(i + vec2(1.0, 0.0));
+        float c = hash2d(i + vec2(0.0, 1.0));
+        float d = hash2d(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
       }
 
       float fbm(vec2 p) {
-        float f = 0.0;
-        f += 0.5000 * noise(p); p = p * 2.02;
-        f += 0.2500 * noise(p); p = p * 2.03;
-        f += 0.1250 * noise(p); p = p * 2.01;
-        f += 0.0625 * noise(p);
-        return f;
+        float v = 0.0;
+        v += 0.500 * noise(p); p *= 2.02;
+        v += 0.250 * noise(p); p *= 2.03;
+        v += 0.125 * noise(p); p *= 2.01;
+        v += 0.062 * noise(p);
+        return v;
       }
 
-      // Matrix rotation utilities
       mat2 rot(float a) {
         float c = cos(a);
         float s = sin(a);
         return mat2(c, -s, s, c);
       }
 
+      // Exact Accretion Disk Radiant Emission function
+      // Samples the striated filaments, Keplerian rotation, Doppler beaming, and plasma flares
+      vec4 sampleDisk(vec3 pos, vec3 rayDir, float time, float scroll) {
+        float r = length(pos.xz);
+        const float Rin = 1.30;   // Innermost stable orbit
+        const float Rout = 5.20;  // Outer accretion disk boundary
+
+        if (r < Rin || r > Rout) {
+          return vec4(0.0);
+        }
+
+        float normR = (r - Rin) / (Rout - Rin);
+        float angle = atan(pos.z, pos.x);
+
+        // Keplerian angular velocity (inner particles orbit much faster)
+        float vOrbitSpeed = (2.4 / sqrt(r)) * (0.9 + scroll * 0.8);
+        float flowAngle = angle - time * vOrbitSpeed;
+
+        // --- 1. Luminous Thread-Like Striations (Concentric Fibers) ---
+        // High-frequency radial bands layered with turbulent gas noise
+        float denseBands = sin(r * 48.0 + fbm(vec2(r * 6.0, flowAngle * 2.0)) * 5.0) * 0.5 + 0.5;
+        float fineBands  = sin(r * 115.0 + fbm(vec2(flowAngle * 4.0, r * 14.0)) * 3.0) * 0.5 + 0.5;
+        float microBands = sin(r * 240.0) * 0.5 + 0.5;
+        float striations = pow(denseBands * 0.5 + fineBands * 0.35 + microBands * 0.15, 1.3);
+
+        // Turbulence filaments across the disk plane
+        float gasTurbulence = fbm(vec2(flowAngle * 3.5, r * 8.0 - time * 0.4));
+        float diskDensity = pow(1.0 - normR, 1.1) * (0.35 + 0.65 * striations) * (0.55 + 0.45 * gasTurbulence);
+
+        // --- 2. Relativistic Doppler Beaming (Interstellar Effect) ---
+        // Matter moving towards the camera (left side) is significantly amplified and flared
+        vec3 vDir = normalize(vec3(-pos.z, 0.0, pos.x));
+        float dopplerCos = dot(vDir, -rayDir);
+        float beaming = pow(max(1.0 + dopplerCos * 0.62, 0.08), 3.4);
+
+        // Extra width and flare on the approaching (left) side
+        if (dopplerCos > 0.0) {
+          diskDensity *= (1.0 + dopplerCos * 0.85);
+        }
+
+        // --- 3. Matching Color Palette (Electric Purple, Vivid Violet, Blazing Core, Cyan Flares) ---
+        vec3 cHotWhite = vec3(1.00, 0.96, 1.00); // White-hot inner photon boundary
+        vec3 cFuchsia  = vec3(0.92, 0.42, 0.98); // Vibrant fuchsia-purple (#e879f9)
+        vec3 cBrand    = vec3(0.66, 0.33, 0.97); // Website signature purple (#a855f7)
+        vec3 cDeep     = vec3(0.42, 0.12, 0.76); // Deep interstellar cosmic violet (#7c3aed)
+        vec3 cDarkEdge = vec3(0.18, 0.03, 0.36); // Outer edge dust
+        vec3 cCyan     = vec3(0.40, 0.88, 1.00); // Relativistic cyan plasma flare (#38bdf8)
+
+        vec3 diskColor = mix(cHotWhite, cFuchsia, smoothstep(0.0, 0.22, normR));
+        diskColor = mix(diskColor, cBrand, smoothstep(0.22, 0.55, normR));
+        diskColor = mix(diskColor, cDeep, smoothstep(0.55, 0.82, normR));
+        diskColor = mix(diskColor, cDarkEdge, smoothstep(0.82, 1.0, normR));
+
+        // --- 4. Glowing Plasma Flares (Matching reference front disk puffs) ---
+        // 3 bright plasma clumps on the inner track crossing in front of the black hole
+        float innerTrack = smoothstep(0.35, 0.0, normR);
+        float frontMask = max(dopplerCos, 0.0);
+        float flareClump1 = pow(sin(flowAngle * 5.0 + time * 1.8) * 0.5 + 0.5, 8.0);
+        float flareClump2 = pow(sin(flowAngle * 8.0 - 1.2 + time * 2.2) * 0.5 + 0.5, 12.0);
+        float flareIntensity = (flareClump1 * 2.5 + flareClump2 * 3.2) * innerTrack * frontMask;
+
+        diskColor += mix(cCyan, cHotWhite, 0.65) * flareIntensity * 2.8;
+
+        float alpha = clamp(diskDensity * beaming * 0.45, 0.0, 1.0);
+        return vec4(diskColor * beaming, alpha);
+      }
+
       void main() {
-        // Normalized coordinates [-1, 1] adjusted for screen aspect ratio
+        // Pixel coordinates [-1, 1] corrected for aspect ratio
         vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
 
-        // Cinematic camera orientation based on scroll and mouse parallax
+        // Composition alignment: Black hole center placed slightly to the right, just like the image
+        vec2 bhCenter = vec2(0.24, -0.02);
+        uv -= bhCenter;
+
         float scroll = clamp(u_scroll, 0.0, 1.0);
-        float pitch = 0.24 + sin(scroll * 3.14159) * 0.20 + u_mouse.y * 0.12;
-        float yaw = -0.32 + scroll * 1.2 + u_mouse.x * 0.22;
-        float roll = -0.15 + sin(scroll * 6.28) * 0.08;
 
-        // Camera setup
-        float camDist = 5.2 - sin(scroll * 3.14159) * 0.9;
-        vec3 ro = vec3(0.0, 0.0, -camDist);
-        vec3 rd = normalize(vec3(uv, 1.6));
+        // Exact Interstellar camera orientation:
+        // Slanted accretion disk (~15 deg pitch, ~ -12 deg roll)
+        float pitch = 0.26 + sin(scroll * 3.14159) * 0.16 + u_mouse.y * 0.08;
+        float yaw   = -0.18 + scroll * 0.85 + u_mouse.x * 0.14;
+        float roll  = -0.19 + sin(scroll * 6.28) * 0.06;
 
-        // Apply pitch, yaw, and roll rotations
+        vec3 ro = vec3(0.0, 0.0, -5.6 + sin(scroll * 3.14159) * 0.6);
+        vec3 rd = normalize(vec3(uv, 1.55));
+
+        // Camera rotation
         rd.yz = rot(pitch) * rd.yz;
         ro.yz = rot(pitch) * ro.yz;
 
@@ -101,117 +177,81 @@ export default function Cinematic3DBackground() {
         rd.xy = rot(roll) * rd.xy;
         ro.xy = rot(roll) * ro.xy;
 
-        // Black Hole parameters
-        const float Rs = 1.0;            // Schwarzschild radius (Event Horizon)
-        const float Rin = 1.35;          // Inner edge of accretion disk (ISCO)
-        const float Rout = 4.3;          // Outer boundary of accretion disk
-        const float diskThickness = 0.045;
-
-        // Matching Color Palette (Electric Purple, Neon Fuchsia, Radiant Lavender, Cyan Flares)
-        vec3 colCore   = vec3(0.98, 0.92, 1.00); // Blazing white-lavender photon emission
-        vec3 colMid    = vec3(0.72, 0.35, 0.98); // Vibrant website purple (#a855f7)
-        vec3 colDeep   = vec3(0.44, 0.14, 0.78); // Cosmic deep violet
-        vec3 colDark   = vec3(0.20, 0.04, 0.38); // Outer accretion dust
-        vec3 colCyan   = vec3(0.35, 0.85, 1.00); // Relativistic energetic plasma flares
-
-        vec3 accumColor = vec3(0.0);
-        float accumAlpha = 0.0;
-        float minDistance = 1000.0;
-
+        const float Rs = 1.0; // Event Horizon Radius
         vec3 p = ro;
         vec3 dir = rd;
 
-        // Adaptive Gravitational Curved Ray Integration
-        const int STEPS = 48;
-        float dt = 0.18;
+        vec3 accumColor = vec3(0.0);
+        float accumAlpha = 0.0;
+        float minR = 1000.0;
+        bool hitHorizon = false;
 
+        const int STEPS = 64;
+        float dt = 0.14;
+
+        // Trace ray through Einstein curved spacetime
         for (int i = 0; i < STEPS; i++) {
+          vec3 pPrev = p;
           float r = length(p);
-          minDistance = min(minDistance, r);
+          minR = min(minR, r);
 
-          // 1. Ray fell inside the Event Horizon (absorbed by singularity)
+          // Hit Event Horizon: absorbed by singularity
           if (r < Rs) {
+            hitHorizon = true;
             accumAlpha = 1.0;
             break;
           }
 
-          // 2. Accretion Disk Interaction (near equatorial plane y = 0)
-          float distToPlane = abs(p.y);
-          if (distToPlane < diskThickness * (1.0 + r * 0.25) && r >= Rin && r <= Rout) {
-            // Radial distance inside disk
-            float normR = (r - Rin) / (Rout - Rin);
-
-            // Polar coordinates on disk plane
-            float angle = atan(p.z, p.x);
-
-            // Keplerian orbital rotation speed: inner disk orbits faster than outer disk
-            float orbitSpeed = (2.2 / sqrt(r)) * (0.8 + scroll * 1.5);
-            float rotAngle = angle - u_time * orbitSpeed;
-
-            // Concentric luminous striations and turbulent gas filaments
-            float rings = sin(r * 42.0 + fbm(vec2(r * 5.0, rotAngle * 2.0)) * 4.0) * 0.5 + 0.5;
-            float filament = fbm(vec2(rotAngle * 4.0, r * 12.0));
-            float density = pow(1.0 - normR, 1.2) * (0.55 + 0.45 * rings) * (0.6 + 0.4 * filament);
-
-            // Relativistic Doppler Beaming: matter moving towards camera is significantly brighter
-            vec3 vOrbit = normalize(vec3(-p.z, 0.0, p.x));
-            float doppler = dot(vOrbit, -dir);
-            float beaming = pow(max(1.0 + doppler * 0.58, 0.1), 3.2);
-
-            // Base disk color gradient
-            vec3 diskCol = mix(colCore, colMid, smoothstep(0.0, 0.35, normR));
-            diskCol = mix(diskCol, colDeep, smoothstep(0.35, 0.75, normR));
-            diskCol = mix(diskCol, colDark, smoothstep(0.75, 1.0, normR));
-
-            // Hot relativistic cyan/white plasma flares on the front inner track
-            float flareMask = pow(smoothstep(0.3, 0.0, normR), 2.5) * max(doppler, 0.0);
-            float flareClusters = pow(sin(rotAngle * 6.0 + u_time * 2.0) * 0.5 + 0.5, 6.0);
-            diskCol += colCyan * flareClusters * flareMask * 3.5;
-
-            // Emission & intensity accumulation
-            float sliceAlpha = density * beaming * 0.42;
-            accumColor += diskCol * sliceAlpha * (1.0 - accumAlpha) * beaming;
-            accumAlpha += sliceAlpha * (1.0 - accumAlpha);
-
-            if (accumAlpha > 0.96) break;
-          }
-
-          // 3. Spacetime Gravitational Bending (Einstein Lensing Deflection)
-          // Deflect ray direction towards the singularity proportional to 1/r^2
-          float bendForce = 1.45 * Rs / (r * r);
-          vec3 bendDir = -normalize(p);
-          dir = normalize(dir + bendDir * bendForce * dt);
-
+          // Spacetime Gravitational Bending (deflect towards center proportional to Rs / r^2)
+          float bend = 1.52 * Rs / (r * r);
+          dir = normalize(dir - normalize(p) * bend * dt);
           p += dir * dt;
 
-          // Ray escaped into deep space
-          if (r > 9.0) break;
+          // --- Exact Plane Crossing Detection ---
+          // When pPrev and p are on opposite sides of the disk plane (y = 0),
+          // the ray intersects the accretion disk!
+          if (pPrev.y * p.y <= 0.0) {
+            float s = -pPrev.y / (p.y - pPrev.y + 1e-6);
+            vec3 pCross = mix(pPrev, p, clamp(s, 0.0, 1.0));
+
+            // Check if this intersection is occluded by the black hole shadow
+            bool inShadow = (pCross.z > 0.0 && length(pCross.xy) < Rs * 1.02);
+
+            if (!inShadow) {
+              vec4 sampleCol = sampleDisk(pCross, dir, u_time, scroll);
+              accumColor += sampleCol.rgb * sampleCol.a * (1.0 - accumAlpha);
+              accumAlpha += sampleCol.a * (1.0 - accumAlpha);
+            }
+          }
+
+          if (r > 10.0 || accumAlpha >= 0.97) break;
         }
 
-        // 4. Razor-Sharp Photon Ring (Light trapped at r ~= 1.5 * Rs)
-        if (minDistance > Rs) {
-          float photonDist = abs(minDistance - Rs * 1.05);
-          float photonRing = exp(-photonDist * 35.0);
-          accumColor += colCore * photonRing * 1.8 * (1.0 - accumAlpha);
+        // --- Razor-Sharp Photon Sphere Ring ---
+        // Blinding thin ring of trapped photons circling right on the shadow edge
+        if (!hitHorizon && minR > Rs) {
+          float photonDist = abs(minR - Rs * 1.03);
+          float photonIntensity = exp(-photonDist * 42.0);
+          accumColor += vec3(1.0, 0.95, 1.0) * photonIntensity * 2.8 * (1.0 - accumAlpha);
         }
 
-        // 5. Gravitational Lensing Outer Halo Glow
-        float haloDist = abs(minDistance - Rs * 1.4);
-        float haloGlow = exp(-haloDist * 3.5) * 0.35;
-        accumColor += colMid * haloGlow * (1.0 - accumAlpha);
+        // --- Gravitational Lensing Outer Halo Bloom ---
+        float haloDist = abs(minR - Rs * 1.35);
+        float haloGlow = exp(-haloDist * 4.2) * 0.45;
+        accumColor += vec3(0.66, 0.33, 0.97) * haloGlow * (1.0 - accumAlpha);
 
-        // 6. Deep Space Background Stars with subtle gravitational distortion
-        vec2 starUv = dir.xy * 25.0;
-        float starNoise = hash(floor(starUv.x) + floor(starUv.y) * 131.0);
-        float starIntensity = pow(starNoise, 40.0) * 0.8;
-        vec3 starCol = mix(vec3(0.8, 0.7, 1.0), colCyan, hash(starNoise * 3.0));
-        accumColor += starCol * starIntensity * (1.0 - accumAlpha);
+        // --- Deep Cosmic Starfield with Gravitational Deflection ---
+        vec2 starUv = dir.xy * 28.0;
+        float starNoise = hash(floor(starUv.x) + floor(starUv.y) * 157.0);
+        float star = pow(starNoise, 45.0) * 0.9;
+        vec3 starColor = mix(vec3(0.8, 0.7, 1.0), vec3(0.4, 0.85, 1.0), hash(starNoise * 4.0));
+        accumColor += starColor * star * (1.0 - accumAlpha);
 
-        // Final tone mapping & contrast
-        accumColor = accumColor / (accumColor + vec3(1.0)); // Reinhard tone mapping
-        accumColor = pow(accumColor, vec3(0.92));            // Gamma adjustment
+        // Filmic ACES Tone Mapping & Gamma Curve for maximum cinematic contrast
+        accumColor = (accumColor * (2.51 * accumColor + 0.03)) / (accumColor * (2.43 * accumColor + 0.59) + 0.14);
+        accumColor = pow(clamp(accumColor, 0.0, 1.0), vec3(0.95));
 
-        gl_FragColor = vec4(accumColor, accumAlpha * 0.95);
+        gl_FragColor = vec4(accumColor, 1.0);
       }
     `;
 
@@ -226,15 +266,14 @@ export default function Cinematic3DBackground() {
       vertexShader,
       fragmentShader,
       uniforms,
-      transparent: true,
-      blending: THREE.NormalBlending,
+      depthWrite: false,
+      depthTest: false,
     });
 
     const geometry = new THREE.PlaneGeometry(2, 2);
     const quad = new THREE.Mesh(geometry, material);
     scene.add(quad);
 
-    // Scroll and Mouse Listeners
     let targetScroll = 0;
     let currentScroll = 0;
     let targetMouseX = 0;
@@ -259,7 +298,7 @@ export default function Cinematic3DBackground() {
       const width = window.innerWidth;
       const height = window.innerHeight;
       renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       uniforms.u_resolution.value.set(width, height);
     };
 
@@ -268,7 +307,6 @@ export default function Cinematic3DBackground() {
     window.addEventListener("resize", handleResize);
     handleScroll();
 
-    // Animation Loop
     let animationFrameId: number;
     const clock = new THREE.Clock();
 
@@ -276,7 +314,7 @@ export default function Cinematic3DBackground() {
       animationFrameId = requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
 
-      // Smooth lerp physics for scroll & cursor
+      // Smooth inertia lerp
       currentScroll += (targetScroll - currentScroll) * 0.055;
       currentMouseX += (targetMouseX - currentMouseX) * 0.04;
       currentMouseY += (targetMouseY - currentMouseY) * 0.04;
