@@ -123,26 +123,14 @@ export default function Home() {
         </div>
       )}
 
-      {/* Scroll Reactive Premium Background */}
-      <div className="fixed inset-0 -z-20 overflow-hidden bg-black">
-        <div
-          className="absolute inset-[-20%] transition-transform duration-300 ease-out"
-          style={{
-            transform: `translateY(${scrollY * 0.5}px) scale(${1 + scrollY * 0.001})`,
-            background: `
-              radial-gradient(circle at 20% 30%, rgba(168,85,247,0.45), transparent 35%),
-              radial-gradient(circle at 80% 20%, rgba(124,58,237,0.4), transparent 35%),
-              radial-gradient(circle at 70% 80%, rgba(217,70,239,0.35), transparent 30%),
-              radial-gradient(circle at 30% 80%, rgba(88,28,135,0.45), transparent 35%)
-            `,
-            filter: "blur(90px)",
-          }}
-        />
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-[60px]" />
-      </div>
-
-      {/* 3D Cinematic Scroll Animation */}
+      {/* 3D Cinematic Black Hole */}
       <Cinematic3DBackground />
+
+      {/* Dark Blur & Readability Vignette Overlay */}
+      <div
+        className="fixed inset-0 -z-10 pointer-events-none bg-black/45 backdrop-blur-[2px] bg-gradient-to-b from-black/75 via-black/35 to-black/85"
+        aria-hidden="true"
+      />
 
       {/* Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-3xl border-b border-white/10">
