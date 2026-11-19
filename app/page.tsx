@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Space_Grotesk } from "next/font/google";
 import CameraCaptureComponent from "@/components/CameraCapture";
 import NotesSection from "@/components/NotesSection";
+import Cinematic3DBackground from "@/components/Cinematic3DBackground";
 
 
 const spaceGrotesk = Space_Grotesk({
@@ -123,7 +124,7 @@ export default function Home() {
       )}
 
       {/* Scroll Reactive Premium Background */}
-      <div className="fixed inset-0 -z-10 overflow-hidden bg-black">
+      <div className="fixed inset-0 -z-20 overflow-hidden bg-black">
         <div
           className="absolute inset-[-20%] transition-transform duration-300 ease-out"
           style={{
@@ -137,8 +138,11 @@ export default function Home() {
             filter: "blur(90px)",
           }}
         />
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-[80px]" />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[60px]" />
       </div>
+
+      {/* 3D Cinematic Scroll Animation */}
+      <Cinematic3DBackground />
 
       {/* Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-3xl border-b border-white/10">
