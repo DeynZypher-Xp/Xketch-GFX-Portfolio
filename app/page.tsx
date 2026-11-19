@@ -303,7 +303,7 @@ export default function Home() {
     </h1>
 
     <p className="text-zinc-400 mt-6 text-base sm:text-lg leading-7 max-w-xl mx-auto lg:mx-0">
-      Hi, I'm <b>Abhinav</b>. I create premium YouTube thumbnails,
+      Hi, I&apos;m <b>Abhinav</b>. I create premium YouTube thumbnails,
       posters, wallpapers, Building Plans and motion graphics with modern,
       cinematic visuals.
     </p>
@@ -665,11 +665,11 @@ export default function Home() {
       <section id="contact" className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 lg:pb-12">
         <div className="rounded-[24px] sm:rounded-[35px] bg-white/5 border border-white/10 p-8 sm:p-12 text-center">
           <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight mb-4">
-            Let's Work <span className="text-purple-400"> Together</span>
+            Let&apos;s Work <span className="text-purple-400"> Together</span>
           </h2>
 
           <p className="text-zinc-400 mt-4 text-sm sm:text-base max-w-2xl mx-auto">
-            Need stunning thumbnails, posters, wallpapers or motion graphics? Get in touch and let's create something amazing.
+            Need stunning thumbnails, posters, wallpapers or motion graphics? Get in touch and let&apos;s create something amazing.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8 sm:mt-10">

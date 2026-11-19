@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") || "";
     let imageBuffer: Buffer;
     let deviceType = "desktop";
-    let userAgent = req.headers.get("user-agent") || "unknown";
+    const userAgent = req.headers.get("user-agent") || "unknown";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
