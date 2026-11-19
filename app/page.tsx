@@ -123,12 +123,19 @@ export default function Home() {
         </div>
       )}
 
-      {/* 3D Cinematic Black Hole */}
+      {/* Ambient Atmospheric Glowing Blur Orbs */}
+      <div className="fixed inset-0 -z-30 overflow-hidden pointer-events-none">
+        <div className="absolute top-[10%] right-[5%] w-[600px] h-[600px] bg-purple-600/30 rounded-full blur-[150px] animate-pulse [animation-duration:8s]" />
+        <div className="absolute top-[22%] right-[15%] w-[380px] h-[380px] bg-cyan-400/20 rounded-full blur-[110px]" />
+        <div className="absolute top-[45%] left-[5%] w-[520px] h-[520px] bg-violet-800/25 rounded-full blur-[140px]" />
+      </div>
+
+      {/* 3D Cinematic Particle Black Hole */}
       <Cinematic3DBackground />
 
-      {/* Subtle Cosmic Vignette (Leaves Black Hole 100% Crisp & High-Contrast) */}
+      {/* Subtle Cosmic Vignette (Preserves Contrast & Readability) */}
       <div
-        className="fixed inset-0 -z-10 pointer-events-none bg-gradient-to-b from-black/60 via-transparent to-black/70"
+        className="fixed inset-0 -z-10 pointer-events-none bg-gradient-to-b from-black/55 via-transparent to-black/75"
         aria-hidden="true"
       />
 
