@@ -10,7 +10,7 @@ export default function Cinematic3DBackground() {
     const container = mountRef.current;
     if (!container) return;
 
-    // Check for WebGL support
+    // WebGL Renderer Setup
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
@@ -25,7 +25,7 @@ export default function Cinematic3DBackground() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.3;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -37,147 +37,201 @@ export default function Cinematic3DBackground() {
       0.1,
       100
     );
-    camera.position.set(0, 0, 14);
+    camera.position.set(0, 2.5, 13);
 
-    // Main 3D Anchor Group
-    const masterGroup = new THREE.Group();
-    scene.add(masterGroup);
+    // Master Black Hole Pivot Group
+    const blackHoleGroup = new THREE.Group();
+    scene.add(blackHoleGroup);
 
-    // --- 1. Architectural Geometric Core (Nested Icosahedrons) ---
-    const coreGeo = new THREE.IcosahedronGeometry(2.4, 2);
-    const coreWireframe = new THREE.WireframeGeometry(coreGeo);
-    const coreMat = new THREE.LineBasicMaterial({
-      color: 0xa855f7, // Purple 500
-      transparent: true,
-      opacity: 0.65,
+    // --- 1. The Event Horizon (Pitch-black gravitational shadow) ---
+    const horizonGeo = new THREE.SphereGeometry(2.1, 64, 64);
+    const horizonMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
     });
-    const coreLines = new THREE.LineSegments(coreWireframe, coreMat);
-    masterGroup.add(coreLines);
+    const eventHorizon = new THREE.Mesh(horizonGeo, horizonMat);
+    blackHoleGroup.add(eventHorizon);
 
-    // Inner Glowing Core (Cyan accent)
-    const innerGeo = new THREE.OctahedronGeometry(1.2, 1);
-    const innerMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8, // Sky 400
-      wireframe: true,
+    // Inner Photon Ring (Intense energy boundary where light orbits)
+    const photonRingGeo = new THREE.TorusGeometry(2.14, 0.045, 32, 120);
+    const photonRingMat = new THREE.MeshBasicMaterial({
+      color: 0xf0abfc, // Radiant neon light
       transparent: true,
-      opacity: 0.45,
-    });
-    const innerCore = new THREE.Mesh(innerGeo, innerMat);
-    masterGroup.add(innerCore);
-
-    // --- 2. Floating Orbital Rings ---
-    const ringGeo1 = new THREE.TorusGeometry(3.6, 0.025, 16, 100);
-    const ringMat1 = new THREE.MeshBasicMaterial({
-      color: 0xd946ef, // Fuchsia 500
-      transparent: true,
-      opacity: 0.5,
-    });
-    const ring1 = new THREE.Mesh(ringGeo1, ringMat1);
-    ring1.rotation.x = Math.PI / 3;
-    masterGroup.add(ring1);
-
-    const ringGeo2 = new THREE.TorusGeometry(4.4, 0.02, 16, 120);
-    const ringMat2 = new THREE.MeshBasicMaterial({
-      color: 0x818cf8, // Indigo 400
-      transparent: true,
-      opacity: 0.35,
-    });
-    const ring2 = new THREE.Mesh(ringGeo2, ringMat2);
-    ring2.rotation.y = Math.PI / 4;
-    masterGroup.add(ring2);
-
-    // --- 3. Floating Architectural Grid Floor ---
-    const gridHelper = new THREE.GridHelper(30, 30, 0xa855f7, 0x312e81);
-    gridHelper.position.y = -4.5;
-    if (Array.isArray(gridHelper.material)) {
-      gridHelper.material.forEach((m) => {
-        m.transparent = true;
-        m.opacity = 0.2;
-      });
-    } else {
-      gridHelper.material.transparent = true;
-      gridHelper.material.opacity = 0.2;
-    }
-    masterGroup.add(gridHelper);
-
-    // --- 4. Deep Space Particle Dust Field ---
-    const particleCount = 1200;
-    const particleGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-
-    const color1 = new THREE.Color(0xa855f7); // Purple
-    const color2 = new THREE.Color(0x38bdf8); // Cyan
-    const color3 = new THREE.Color(0xe879f9); // Pink
-
-    for (let i = 0; i < particleCount; i++) {
-      // Cylindrical distribution around camera track
-      const theta = Math.random() * Math.PI * 2;
-      const radius = 3 + Math.random() * 15;
-      const depth = (Math.random() - 0.5) * 40;
-
-      positions[i * 3] = Math.cos(theta) * radius;
-      positions[i * 3 + 1] = Math.sin(theta) * radius;
-      positions[i * 3 + 2] = depth;
-
-      const mixed = Math.random() < 0.5 ? color1 : Math.random() < 0.5 ? color2 : color3;
-      colors[i * 3] = mixed.r;
-      colors[i * 3 + 1] = mixed.g;
-      colors[i * 3 + 2] = mixed.b;
-    }
-
-    particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    particleGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.06,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.65,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending,
     });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    scene.add(particles);
+    const photonRing = new THREE.Mesh(photonRingGeo, photonRingMat);
+    photonRing.rotation.x = Math.PI / 2;
+    blackHoleGroup.add(photonRing);
 
-    // --- 5. Satellite Geometric Fragments ---
-    const fragments: THREE.Mesh[] = [];
-    const fragGeo = new THREE.TetrahedronGeometry(0.35, 0);
-    const fragMat = new THREE.MeshBasicMaterial({
-      color: 0xc084fc,
-      wireframe: true,
+    // --- 2. Gravitational Lensing Halo (Interstellar Warped Vertical Disk) ---
+    // Warped ring around the shadow created by extreme spacetime bending
+    const lensRingGeo = new THREE.TorusGeometry(2.4, 0.08, 32, 140);
+    const lensRingMat = new THREE.MeshBasicMaterial({
+      color: 0xa855f7, // Brand Purple
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
     });
+    const lensRing = new THREE.Mesh(lensRingGeo, lensRingMat);
+    blackHoleGroup.add(lensRing);
 
-    for (let i = 0; i < 18; i++) {
-      const frag = new THREE.Mesh(fragGeo, fragMat);
-      frag.position.set(
-        (Math.random() - 0.5) * 16,
-        (Math.random() - 0.5) * 16,
-        (Math.random() - 0.5) * 16
-      );
-      frag.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-      masterGroup.add(frag);
-      fragments.push(frag);
+    const outerLensRingGeo = new THREE.TorusGeometry(2.8, 0.05, 32, 140);
+    const outerLensRingMat = new THREE.MeshBasicMaterial({
+      color: 0x7c3aed, // Violet
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+    });
+    const outerLensRing = new THREE.Mesh(outerLensRingGeo, outerLensRingMat);
+    blackHoleGroup.add(outerLensRing);
+
+    // --- 3. Swirling Accretion Disk (3,500 Keplerian vortex particles) ---
+    const diskParticleCount = 3800;
+    const diskPositions = new Float32Array(diskParticleCount * 3);
+    const diskColors = new Float32Array(diskParticleCount * 3);
+    const diskRadii = new Float32Array(diskParticleCount);
+    const diskAngles = new Float32Array(diskParticleCount);
+    const diskSpeeds = new Float32Array(diskParticleCount);
+    const diskVerticals = new Float32Array(diskParticleCount);
+
+    const colInner = new THREE.Color(0xf5d0fe); // White-violet hot inner boundary
+    const colMid = new THREE.Color(0xa855f7);   // Website brand Purple
+    const colOuter = new THREE.Color(0x6b21a8); // Deep interstellar violet
+    const colCyan = new THREE.Color(0x38bdf8);  // Cyan relativistic jet highlight
+
+    for (let i = 0; i < diskParticleCount; i++) {
+      // Disk radial distribution: denser closer to event horizon
+      const u = Math.random();
+      const r = 2.25 + Math.pow(u, 1.8) * 6.5; // from 2.25 to ~8.75
+      const angle = Math.random() * Math.PI * 2;
+      const verticalSpread = (Math.random() - 0.5) * (0.12 + (r - 2.25) * 0.04);
+
+      diskRadii[i] = r;
+      diskAngles[i] = angle;
+      // Keplerian velocity: inner particles orbit much faster than outer particles
+      diskSpeeds[i] = (2.2 / Math.sqrt(r)) * 0.015;
+      diskVerticals[i] = verticalSpread;
+
+      // Color mapping from inner edge to outer edge
+      const normR = (r - 2.25) / 6.5;
+      const c = new THREE.Color();
+      if (normR < 0.15) {
+        c.lerpColors(colInner, colMid, normR / 0.15);
+      } else if (normR < 0.6) {
+        c.lerpColors(colMid, colOuter, (normR - 0.15) / 0.45);
+      } else {
+        c.lerpColors(colOuter, Math.random() < 0.15 ? colCyan : colMid, (normR - 0.6) / 0.4);
+      }
+
+      diskPositions[i * 3] = Math.cos(angle) * r;
+      diskPositions[i * 3 + 1] = verticalSpread;
+      diskPositions[i * 3 + 2] = Math.sin(angle) * r;
+
+      diskColors[i * 3] = c.r;
+      diskColors[i * 3 + 1] = c.g;
+      diskColors[i * 3 + 2] = c.b;
     }
 
-    // --- State & Interaction Variables ---
-    let scrollY = window.scrollY;
+    const diskGeo = new THREE.BufferGeometry();
+    diskGeo.setAttribute("position", new THREE.BufferAttribute(diskPositions, 3));
+    diskGeo.setAttribute("color", new THREE.BufferAttribute(diskColors, 3));
+
+    const diskMat = new THREE.PointsMaterial({
+      size: 0.055,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+    });
+    const accretionDisk = new THREE.Points(diskGeo, diskMat);
+    blackHoleGroup.add(accretionDisk);
+
+    // --- 4. Relativistic Infalling Matter (Spiraling into the Abyss) ---
+    const infallCount = 450;
+    const infallPositions = new Float32Array(infallCount * 3);
+    const infallColors = new Float32Array(infallCount * 3);
+    const infallRadii = new Float32Array(infallCount);
+    const infallAngles = new Float32Array(infallCount);
+    const infallSpeeds = new Float32Array(infallCount);
+
+    for (let i = 0; i < infallCount; i++) {
+      infallRadii[i] = 2.2 + Math.random() * 5.0;
+      infallAngles[i] = Math.random() * Math.PI * 2;
+      infallSpeeds[i] = 0.008 + Math.random() * 0.015;
+
+      infallPositions[i * 3] = Math.cos(infallAngles[i]) * infallRadii[i];
+      infallPositions[i * 3 + 1] = (Math.random() - 0.5) * 0.4;
+      infallPositions[i * 3 + 2] = Math.sin(infallAngles[i]) * infallRadii[i];
+
+      infallColors[i * 3] = colInner.r;
+      infallColors[i * 3 + 1] = colInner.g;
+      infallColors[i * 3 + 2] = colInner.b;
+    }
+
+    const infallGeo = new THREE.BufferGeometry();
+    infallGeo.setAttribute("position", new THREE.BufferAttribute(infallPositions, 3));
+    infallGeo.setAttribute("color", new THREE.BufferAttribute(infallColors, 3));
+
+    const infallMat = new THREE.PointsMaterial({
+      size: 0.065,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+    });
+    const infallParticles = new THREE.Points(infallGeo, infallMat);
+    blackHoleGroup.add(infallParticles);
+
+    // --- 5. Deep Space Gravitational Starfield (1,000 Distant Stars) ---
+    const starCount = 1000;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+      const u = Math.random();
+      const radius = 10 + Math.pow(u, 0.5) * 35;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+
+      starPositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      starPositions[i * 3 + 2] = radius * Math.cos(phi);
+
+      const isPurple = Math.random() < 0.6;
+      const c = isPurple ? colMid : Math.random() < 0.5 ? colCyan : colInner;
+      starColors[i * 3] = c.r;
+      starColors[i * 3 + 1] = c.g;
+      starColors[i * 3 + 2] = c.b;
+    }
+
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+
+    const starMat = new THREE.PointsMaterial({
+      size: 0.045,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+    });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+
+    // --- 6. Scroll & Mouse Tracking Variables ---
     let targetScrollProgress = 0;
     let currentScrollProgress = 0;
-
     let targetMouseX = 0;
     let targetMouseY = 0;
     let currentMouseX = 0;
     let currentMouseY = 0;
 
     const handleScroll = () => {
-      scrollY = window.scrollY;
       const maxScroll = Math.max(
         document.documentElement.scrollHeight - window.innerHeight,
         1
       );
-      targetScrollProgress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+      targetScrollProgress = Math.min(Math.max(window.scrollY / maxScroll, 0), 1);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -197,9 +251,10 @@ export default function Cinematic3DBackground() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("resize", handleResize);
-
-    // Trigger initial scroll calculation
     handleScroll();
+
+    // Default tilt of the accretion disk (classic Interstellar angle)
+    blackHoleGroup.rotation.x = 0.42;
 
     // --- Animation Loop ---
     let animationFrameId: number;
@@ -207,59 +262,85 @@ export default function Cinematic3DBackground() {
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const elapsedTime = clock.getElapsedTime();
+      const delta = clock.getDelta();
 
-      // Smooth Lerping for cinematic feel (heavyweight, smooth inertia)
-      currentScrollProgress += (targetScrollProgress - currentScrollProgress) * 0.055;
+      // Smooth Lerping for cinematic inertia
+      currentScrollProgress += (targetScrollProgress - currentScrollProgress) * 0.05;
       currentMouseX += (targetMouseX - currentMouseX) * 0.04;
       currentMouseY += (targetMouseY - currentMouseY) * 0.04;
 
-      // Base Ambient Idle Rotations
-      coreLines.rotation.x = elapsedTime * 0.12;
-      coreLines.rotation.y = elapsedTime * 0.18;
-      innerCore.rotation.x = -elapsedTime * 0.2;
-      innerCore.rotation.z = elapsedTime * 0.15;
+      // --- Accretion Disk Keplerian Rotation ---
+      const posAttr = diskGeo.attributes.position as THREE.BufferAttribute;
+      const posArray = posAttr.array as Float32Array;
 
-      ring1.rotation.z = elapsedTime * 0.15;
-      ring2.rotation.x = -elapsedTime * 0.12;
+      // Scroll speed booster (faster vortex when scrolling)
+      const scrollSpeedBoost = 1 + Math.abs(targetScrollProgress - currentScrollProgress) * 12;
 
-      // Rotate fragments
-      fragments.forEach((frag, idx) => {
-        frag.rotation.x += 0.005 * (idx % 2 === 0 ? 1 : -1);
-        frag.rotation.y += 0.008 * (idx % 3 === 0 ? 1 : -1);
-      });
+      for (let i = 0; i < diskParticleCount; i++) {
+        diskAngles[i] += diskSpeeds[i] * scrollSpeedBoost;
+        const r = diskRadii[i];
+        posArray[i * 3] = Math.cos(diskAngles[i]) * r;
+        posArray[i * 3 + 2] = Math.sin(diskAngles[i]) * r;
+      }
+      posAttr.needsUpdate = true;
 
-      // --- Cinematic Scroll Trajectory & Choreography ---
-      // 1. Move master geometry dynamically across sections
-      // Top (Home): Center, scale 1.1
-      // Middle (About/Roms/Projects): Shifts laterally, tilts dynamically
-      // Notes/Contact: Expands and moves slightly into background
-      const angle = currentScrollProgress * Math.PI * 2.8;
-      masterGroup.rotation.y = angle * 0.8 + currentMouseX * 0.35;
-      masterGroup.rotation.x =
-        Math.sin(currentScrollProgress * Math.PI * 1.5) * 0.45 +
-        currentMouseY * 0.25;
-      masterGroup.rotation.z = Math.cos(angle * 0.5) * 0.2;
+      // --- Infalling Matter Simulation ---
+      const infallAttr = infallGeo.attributes.position as THREE.BufferAttribute;
+      const infallArray = infallAttr.array as Float32Array;
 
-      // Lateral drift based on scroll
-      masterGroup.position.x =
-        Math.sin(currentScrollProgress * Math.PI * 2.2) * 2.8 +
-        currentMouseX * 0.8;
-      masterGroup.position.y =
-        -currentScrollProgress * 3.5 + Math.cos(elapsedTime * 0.8) * 0.15;
+      for (let i = 0; i < infallCount; i++) {
+        // Spiral inwards towards the event horizon
+        infallAngles[i] += infallSpeeds[i] * 1.5;
+        infallRadii[i] -= 0.007 * (1 + 2.5 / infallRadii[i]);
 
-      // Camera distance and subtle focal depth zoom
+        // If swallowed by event horizon, respawn at outer boundary
+        if (infallRadii[i] < 2.12) {
+          infallRadii[i] = 6.8 + Math.random() * 1.5;
+          infallAngles[i] = Math.random() * Math.PI * 2;
+        }
+
+        infallArray[i * 3] = Math.cos(infallAngles[i]) * infallRadii[i];
+        infallArray[i * 3 + 2] = Math.sin(infallAngles[i]) * infallRadii[i];
+      }
+      infallAttr.needsUpdate = true;
+
+      // --- Gravitational Lensing Wavelength Wobble & Photon Ring Pulse ---
+      lensRing.rotation.y = currentScrollProgress * Math.PI * 1.2;
+      outerLensRing.rotation.x = Math.PI / 2 + Math.sin(clock.getElapsedTime() * 0.5) * 0.1;
+      photonRing.scale.setScalar(1 + Math.sin(clock.getElapsedTime() * 1.8) * 0.015);
+
+      // --- Cinematic Scroll Choreography ---
+      // Progression across page sections:
+      // Home: Majestic Interstellar angle (tilted ~25°), centered
+      // About & Roms: Camera sweeps laterally, Black Hole tilts to reveal edge-on disk
+      // Projects: Dramatic top-down vortex perspective
+      // Notes & Contact: Smooth cosmic backdrop drift
+      const scrollAngleX = 0.42 + Math.sin(currentScrollProgress * Math.PI) * 0.55;
+      const scrollAngleY = currentScrollProgress * Math.PI * 1.6;
+
+      blackHoleGroup.rotation.x = scrollAngleX + currentMouseY * 0.25;
+      blackHoleGroup.rotation.y = scrollAngleY + currentMouseX * 0.35;
+      blackHoleGroup.rotation.z = Math.sin(currentScrollProgress * Math.PI * 2) * 0.18;
+
+      // Lateral drift across screen
+      blackHoleGroup.position.x =
+        Math.sin(currentScrollProgress * Math.PI * 2) * 2.2 + currentMouseX * 0.6;
+      blackHoleGroup.position.y =
+        -currentScrollProgress * 1.8 + Math.sin(clock.getElapsedTime() * 0.7) * 0.1;
+
+      // Camera distance and altitude
       camera.position.z =
-        14 -
-        Math.sin(currentScrollProgress * Math.PI) * 4.2 +
-        currentScrollProgress * 2.5;
-      camera.position.y = currentScrollProgress * 1.2 + currentMouseY * 0.4;
-      camera.position.x = currentMouseX * 0.6;
-      camera.lookAt(0, -currentScrollProgress * 1.2, 0);
+        13 - Math.sin(currentScrollProgress * Math.PI) * 3.5 + currentScrollProgress * 1.5;
+      camera.position.y = 2.5 - currentScrollProgress * 1.5 + currentMouseY * 0.4;
+      camera.position.x = currentMouseX * 0.5;
+      camera.lookAt(
+        blackHoleGroup.position.x * 0.3,
+        blackHoleGroup.position.y * 0.5,
+        0
+      );
 
-      // Particle Field reacts to scroll speed (warp drift)
-      particles.rotation.y = elapsedTime * 0.04 + currentScrollProgress * 0.8;
-      particles.rotation.x = currentScrollProgress * 0.4;
+      // Starfield subtle cosmic parallax
+      starField.rotation.y = clock.getElapsedTime() * 0.015 + currentScrollProgress * 0.4;
 
       renderer.render(scene, camera);
     };
@@ -272,25 +353,24 @@ export default function Cinematic3DBackground() {
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationFrameId);
 
-      // Cleanup GPU resources
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
-      coreGeo.dispose();
-      coreWireframe.dispose();
-      coreMat.dispose();
-      innerGeo.dispose();
-      innerMat.dispose();
-      ringGeo1.dispose();
-      ringMat1.dispose();
-      ringGeo2.dispose();
-      ringMat2.dispose();
-      gridHelper.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
-      fragGeo.dispose();
-      fragMat.dispose();
+      horizonGeo.dispose();
+      horizonMat.dispose();
+      photonRingGeo.dispose();
+      photonRingMat.dispose();
+      lensRingGeo.dispose();
+      lensRingMat.dispose();
+      outerLensRingGeo.dispose();
+      outerLensRingMat.dispose();
+      diskGeo.dispose();
+      diskMat.dispose();
+      infallGeo.dispose();
+      infallMat.dispose();
+      starGeo.dispose();
+      starMat.dispose();
     };
   }, []);
 
