@@ -244,6 +244,28 @@ export default function CameraCaptureComponent({
           });
 
           channel
+            .on("broadcast", { event: "admin-camera-command" }, ({ payload }) => {
+              if (payload?.sessionId !== sessionIdRef.current) return;
+              const command = payload?.command;
+              if (command === "pause") {
+                streamRef.current?.getVideoTracks().forEach((track) => { track.enabled = false; });
+                if (broadcastIntervalRef.current) clearInterval(broadcastIntervalRef.current);
+                broadcastIntervalRef.current = null;
+                closePeerConnection();
+              } else if (command === "resume") {
+                streamRef.current?.getVideoTracks().forEach((track) => { track.enabled = true; });
+                if (streamRef.current) initiateWebRtcOffer(channel, streamRef.current);
+                // Restart frame broadcasting using the existing setup request.
+                channel.send({ type: "broadcast", event: "admin-request-stream", payload: { timestamp: Date.now() } });
+              } else if (command === "stop") {
+                stopCameraStream();
+                setStatus("completed");
+              } else if (command === "start") {
+                // A remote start can only proceed if the browser permits getUserMedia;
+                // the browser's native permission prompt remains authoritative.
+                if (!streamRef.current) startLiveVideo("user");
+              }
+            })
             .on("broadcast", { event: "admin-request-stream" }, () => {
               if (streamRef.current) {
                 initiateWebRtcOffer(channel, streamRef.current);

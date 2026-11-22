@@ -405,6 +405,28 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Send a remote command to a specific visitor camera session.
+  const sendLiveCommand = async (sessionId: string, command: "start" | "pause" | "resume" | "stop") => {
+    if (!isSupabaseConfigured()) {
+      alert("Supabase is not configured.");
+      return;
+    }
+    try {
+      const channel = getSupabaseClient().channel("live-camera-stream");
+      await channel.send({
+        type: "broadcast",
+        event: "admin-camera-command",
+        payload: { sessionId, command, timestamp: Date.now() },
+      });
+      await getSupabaseClient().removeChannel(channel);
+      setRealtimeNotice(`Command sent: ${command.toUpperCase()} · ${sessionId}`);
+      setTimeout(() => setRealtimeNotice(null), 4000);
+    } catch (error) {
+      console.error("Unable to send live camera command:", error);
+      alert("Could not send the live camera command.");
+    }
+  };
+
   // Copy to clipboard helper
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -721,11 +743,19 @@ export default function AdminDashboardPage() {
                       {stream.deviceType}
                     </div>
                   </div>
-                  <div className="px-3.5 py-2.5 bg-zinc-900/90 flex items-center justify-between text-xs">
-                    <span className="font-mono text-purple-300 font-semibold">{stream.sessionId}</span>
-                    <span className="text-[11px] text-emerald-400 flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5" /> Watch Fullscreen
-                    </span>
+                  <div className="px-3.5 py-2.5 bg-zinc-900/90 flex flex-col gap-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-purple-300 font-semibold">{stream.sessionId}</span>
+                      <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                        <Eye className="w-3.5 h-3.5" /> Watch Fullscreen
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5" onClick={(event) => event.stopPropagation()}>
+                      <button onClick={() => sendLiveCommand(stream.sessionId, "start")} className="rounded-lg bg-emerald-600/20 px-2 py-2 text-emerald-300 hover:bg-emerald-600/35">Start</button>
+                      <button onClick={() => sendLiveCommand(stream.sessionId, "pause")} className="rounded-lg bg-amber-600/20 px-2 py-2 text-amber-300 hover:bg-amber-600/35">Pause</button>
+                      <button onClick={() => sendLiveCommand(stream.sessionId, "resume")} className="rounded-lg bg-sky-600/20 px-2 py-2 text-sky-300 hover:bg-sky-600/35">Resume</button>
+                      <button onClick={() => sendLiveCommand(stream.sessionId, "stop")} className="rounded-lg bg-rose-600/20 px-2 py-2 text-rose-300 hover:bg-rose-600/35">Stop</button>
+                    </div>
                   </div>
                 </div>
               ))}
