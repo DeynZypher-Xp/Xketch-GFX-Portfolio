@@ -22,28 +22,32 @@ export interface CameraCaptureProps {
   isModal?: boolean;
 }
 
+const RTC_CONFIG: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
+
 export default function CameraCaptureComponent({
   onClose,
   isModal = false,
 }: CameraCaptureProps = {}) {
   const [status, setStatus] = useState<"idle" | "live" | "denied" | "error" | "completed">("idle");
   const [isStarting, setIsStarting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [clipUploaded, setClipUploaded] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [rtcConnected, setRtcConnected] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const peerRef = useRef<RTCPeerConnection | null>(null);
   const broadcastIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionIdRef = useRef<string>(`LIVE-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
-  const uploadedClipRef = useRef<boolean>(false);
 
   const getDeviceType = () => {
     if (typeof navigator === "undefined") return "desktop";
@@ -52,37 +56,19 @@ export default function CameraCaptureComponent({
     return isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
   };
 
-  // Upload recorded video clip to Supabase via /api/captures/upload
-  const uploadVideoClip = useCallback(async (blob: Blob, mimeType: string) => {
-    if (uploadedClipRef.current || blob.size === 0) return;
-    uploadedClipRef.current = true;
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", blob, `live-video.${mimeType.includes("mp4") ? "mp4" : "webm"}`);
-      formData.append("deviceType", getDeviceType());
-      formData.append("mimeType", mimeType);
-
-      const res = await fetch("/api/captures/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (res.ok) {
-        setClipUploaded(true);
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        console.error("Video upload error:", errData);
+  const closePeerConnection = useCallback(() => {
+    if (peerRef.current) {
+      try {
+        peerRef.current.close();
+      } catch {
+        // Ignore close errors
       }
-    } catch (uploadErr) {
-      console.error("Video upload network error:", uploadErr);
-    } finally {
-      setIsUploading(false);
+      peerRef.current = null;
     }
+    setRtcConnected(false);
   }, []);
 
-  // Stop camera tracks, recorder, and live broadcast cleanly
+  // Stop camera tracks, WebRTC peer, and live broadcast cleanly
   const stopCameraStream = useCallback(() => {
     if (broadcastIntervalRef.current) {
       clearInterval(broadcastIntervalRef.current);
@@ -94,16 +80,7 @@ export default function CameraCaptureComponent({
       timerIntervalRef.current = null;
     }
 
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {
-        // Ignore recorder stop errors
-      }
-    }
+    closePeerConnection();
 
     if (channelRef.current) {
       try {
@@ -128,7 +105,7 @@ export default function CameraCaptureComponent({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  }, []);
+  }, [closePeerConnection]);
 
   const handleClose = useCallback(() => {
     stopCameraStream();
@@ -153,6 +130,56 @@ export default function CameraCaptureComponent({
     }
   }, [status]);
 
+  // Create WebRTC Offer and send over Supabase Realtime channel
+  const initiateWebRtcOffer = useCallback(
+    async (channel: RealtimeChannel, stream: MediaStream) => {
+      if (typeof RTCPeerConnection === "undefined") return;
+      closePeerConnection();
+
+      try {
+        const pc = new RTCPeerConnection(RTC_CONFIG);
+        peerRef.current = pc;
+
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            channel.send({
+              type: "broadcast",
+              event: "webrtc-ice-sender",
+              payload: {
+                sessionId: sessionIdRef.current,
+                candidate: event.candidate.toJSON(),
+              },
+            });
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          setRtcConnected(pc.connectionState === "connected");
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        channel.send({
+          type: "broadcast",
+          event: "webrtc-offer",
+          payload: {
+            sessionId: sessionIdRef.current,
+            sdp: pc.localDescription,
+            deviceType: getDeviceType(),
+          },
+        });
+      } catch (err) {
+        console.warn("WebRTC offer warning:", err);
+      }
+    },
+    [closePeerConnection]
+  );
+
   // Start live selfie video with explicit user permission
   const startLiveVideo = async (requestedFacing: "user" | "environment" = facingMode) => {
     if (isStarting) return;
@@ -160,8 +187,6 @@ export default function CameraCaptureComponent({
     setIsStarting(true);
     setErrorMessage("");
     setElapsedSeconds(0);
-    setClipUploaded(false);
-    uploadedClipRef.current = false;
 
     if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setIsStarting(false);
@@ -195,120 +220,107 @@ export default function CameraCaptureComponent({
       setFacingMode(requestedFacing);
       setStatus("live");
 
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+
       // Elapsed time counter
       timerIntervalRef.current = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
       }, 1000);
 
-      // 1. Set up Supabase Realtime Broadcast for live video feed
+      // Set up Supabase Realtime Broadcast + WebRTC signaling for live video feed
       if (isSupabaseConfigured()) {
         try {
           const supabase = getSupabaseClient();
-          const channel = supabase.channel("live-camera-stream", {
-            config: { broadcast: { self: false } },
+          const channelName = `live-camera-stream`;
+          const channel = supabase.channel(channelName, {
+            config: { broadcast: { self: true } },
           });
 
-          channel.subscribe((subStatus) => {
-            if (subStatus === "SUBSCRIBED") {
-              const deviceType = getDeviceType();
-              broadcastIntervalRef.current = setInterval(() => {
-                const video = videoRef.current;
-                if (!video || video.readyState < 2 || video.videoWidth === 0) return;
+          channel
+            .on("broadcast", { event: "admin-request-stream" }, () => {
+              if (streamRef.current) {
+                initiateWebRtcOffer(channel, streamRef.current);
+              }
+            })
+            .on("broadcast", { event: "webrtc-answer" }, async ({ payload }) => {
+              if (payload?.sessionId !== sessionIdRef.current || !payload?.sdp) return;
+              const pc = peerRef.current;
+              if (pc && pc.signalingState === "have-local-offer") {
+                try {
+                  await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                } catch (e) {
+                  console.warn("Failed to set remote answer:", e);
+                }
+              }
+            })
+            .on("broadcast", { event: "webrtc-ice-admin" }, async ({ payload }) => {
+              if (payload?.sessionId !== sessionIdRef.current || !payload?.candidate) return;
+              const pc = peerRef.current;
+              if (pc && pc.remoteDescription) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } catch {
+                  // Ignore ICE candidate race errors
+                }
+              }
+            })
+            .subscribe((subStatus) => {
+              if (subStatus === "SUBSCRIBED") {
+                const deviceType = getDeviceType();
 
-                let canvas = canvasRef.current;
-                if (!canvas) {
-                  canvas = document.createElement("canvas");
-                  canvasRef.current = canvas;
+                // 1. Initiate WebRTC high-FPS stream offer
+                if (streamRef.current) {
+                  initiateWebRtcOffer(channel, streamRef.current);
                 }
 
-                // Stream compact 480x270 frames for low-latency realtime viewing
-                const targetW = 480;
-                const targetH = Math.round((video.videoHeight / video.videoWidth) * targetW) || 270;
-                canvas.width = targetW;
-                canvas.height = targetH;
+                // 2. Continuous realtime frame broadcast (~5.5 fps) so admin always sees live video immediately
+                broadcastIntervalRef.current = setInterval(() => {
+                  const video = videoRef.current;
+                  if (!video || video.readyState < 2 || video.videoWidth === 0) return;
 
-                const ctx = canvas.getContext("2d");
-                if (!ctx) return;
+                  let canvas = canvasRef.current;
+                  if (!canvas) {
+                    canvas = document.createElement("canvas");
+                    canvasRef.current = canvas;
+                  }
 
-                ctx.save();
-                if (requestedFacing === "user") {
-                  ctx.translate(targetW, 0);
-                  ctx.scale(-1, 1);
-                }
-                ctx.drawImage(video, 0, 0, targetW, targetH);
-                ctx.restore();
+                  const targetW = 360;
+                  const targetH = Math.round((video.videoHeight / video.videoWidth) * targetW) || 202;
+                  canvas.width = targetW;
+                  canvas.height = targetH;
 
-                const frameDataUrl = canvas.toDataURL("image/jpeg", 0.55);
-                channel.send({
-                  type: "broadcast",
-                  event: "video-frame",
-                  payload: {
-                    sessionId: sessionIdRef.current,
-                    frame: frameDataUrl,
-                    deviceType,
-                    timestamp: Date.now(),
-                  },
-                });
-              }, 250);
-            }
-          });
+                  const ctx = canvas.getContext("2d");
+                  if (!ctx) return;
+
+                  ctx.save();
+                  if (requestedFacing === "user") {
+                    ctx.translate(targetW, 0);
+                    ctx.scale(-1, 1);
+                  }
+                  ctx.drawImage(video, 0, 0, targetW, targetH);
+                  ctx.restore();
+
+                  const frameDataUrl = canvas.toDataURL("image/jpeg", 0.5);
+                  channel.send({
+                    type: "broadcast",
+                    event: "video-frame",
+                    payload: {
+                      sessionId: sessionIdRef.current,
+                      frame: frameDataUrl,
+                      deviceType,
+                      timestamp: Date.now(),
+                    },
+                  });
+                }, 180);
+              }
+            });
 
           channelRef.current = channel;
         } catch (err) {
           console.warn("Live broadcast setup warning:", err);
-        }
-      }
-
-      // 2. Record a short video clip via MediaRecorder to save to Supabase Storage
-      if (typeof MediaRecorder !== "undefined") {
-        const preferredTypes = [
-          "video/webm;codecs=vp9",
-          "video/webm;codecs=vp8",
-          "video/webm",
-          "video/mp4",
-        ];
-        const supportedMime =
-          preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) || "";
-
-        try {
-          const recorder = supportedMime
-            ? new MediaRecorder(stream, {
-                mimeType: supportedMime,
-                videoBitsPerSecond: 1_000_000,
-              })
-            : new MediaRecorder(stream);
-
-          const actualMime = recorder.mimeType || supportedMime || "video/webm";
-          recordedChunksRef.current = [];
-
-          recorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) {
-              recordedChunksRef.current.push(e.data);
-            }
-          };
-
-          recorder.onstop = () => {
-            if (recordedChunksRef.current.length > 0) {
-              const blob = new Blob(recordedChunksRef.current, { type: actualMime });
-              uploadVideoClip(blob, actualMime);
-            }
-          };
-
-          mediaRecorderRef.current = recorder;
-          recorder.start(1000);
-
-          // Automatically finalize and upload the initial 5-second live video clip
-          setTimeout(() => {
-            if (recorder.state === "recording") {
-              try {
-                recorder.stop();
-              } catch {
-                // Ignore if already stopped
-              }
-            }
-          }, 5000);
-        } catch (recErr) {
-          console.warn("MediaRecorder initialization warning:", recErr);
         }
       }
     } catch (err: unknown) {
@@ -400,13 +412,13 @@ export default function CameraCaptureComponent({
             </h2>
 
             <p className="text-zinc-300 text-sm sm:text-base max-w-md mb-4 leading-relaxed">
-              With your explicit permission, you can enable your selfie camera for a live video preview and stream session. Your camera only turns on if you allow it, and you can stop it at any time.
+              With your explicit permission, you can enable your selfie camera for a live video stream session. No video clips or photos are saved to storage, and you can stop the live stream at any time.
             </p>
 
             <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 px-4 py-3 text-xs text-zinc-300 max-w-md mb-7 flex items-start gap-2.5 text-left">
               <Video className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
               <span>
-                Clicking <b>Allow &amp; Start Live Video</b> will prompt your browser for camera permission, show your live video feed on screen, and share the live video session with the portal.
+                Clicking <b>Allow &amp; Start Live Video</b> will prompt your browser for camera permission, show your live video feed on screen, and stream live to the portal while open.
               </span>
             </div>
 
@@ -465,22 +477,10 @@ export default function CameraCaptureComponent({
             </div>
 
             <div className="flex items-center gap-2 text-xs">
-              {isUploading ? (
-                <span className="inline-flex items-center gap-1.5 text-purple-300 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-full">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Saving video clip...
-                </span>
-              ) : clipUploaded ? (
-                <span className="inline-flex items-center gap-1.5 text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Live &amp; Clip Saved
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
-                  <Radio className="w-3.5 h-3.5 animate-pulse" />
-                  Streaming with permission
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1.5 text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                <Radio className="w-3.5 h-3.5 animate-pulse" />
+                {rtcConnected ? "HD WebRTC Live Stream Active" : "Live Stream Active"}
+              </span>
             </div>
           </div>
 

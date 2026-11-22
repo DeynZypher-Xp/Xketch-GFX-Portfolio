@@ -34,17 +34,22 @@ export const isSupabaseConfigured = () => {
 };
 
 // Client-side singleton Supabase client
+let browserSupabaseClient: ReturnType<typeof createClient> | null = null;
+
 export const getSupabaseClient = () => {
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
+  if (!browserSupabaseClient) {
+    browserSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
       },
-    },
-  });
+      realtime: {
+        params: {
+          eventsPerSecond: 40,
+        },
+      },
+    });
+  }
+  return browserSupabaseClient;
 };
 
 export const supabase = getSupabaseClient();

