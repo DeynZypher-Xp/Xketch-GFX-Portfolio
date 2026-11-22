@@ -101,27 +101,25 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-transparent text-white overflow-x-hidden">
 
-      {/* Camera Experience Pop-up on First Visit */}
-      {isCameraPopupOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-2xl flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-300"
-          role="dialog"
-          aria-modal="true"
-        >
-          {/* Clickable Backdrop Dismiss */}
-          <div
-            className="fixed inset-0 -z-10"
-            onClick={() => setIsCameraPopupOpen(false)}
+      {/* Camera permission prompt. Keep the component mounted after the prompt
+          closes so its MediaStream and Supabase/WebRTC connection remain active. */}
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 backdrop-blur-2xl transition-opacity sm:p-6 ${
+          isCameraPopupOpen
+            ? "opacity-100"
+            : "pointer-events-none opacity-0"
+        }`}
+        role="dialog"
+        aria-modal={isCameraPopupOpen}
+        aria-hidden={!isCameraPopupOpen}
+      >
+        <div className="relative w-full max-w-md">
+          <CameraCaptureComponent
+            onClose={() => setIsCameraPopupOpen(false)}
+            isModal={true}
           />
-
-          <div className="relative w-full max-w-3xl my-auto animate-in zoom-in-95 duration-200">
-            <CameraCaptureComponent
-              onClose={() => setIsCameraPopupOpen(false)}
-              isModal={true}
-            />
-          </div>
         </div>
-      )}
+      </div>
 
       {/* Ambient Atmospheric Glowing Blur Orbs */}
       <div className="fixed inset-0 -z-30 overflow-hidden pointer-events-none">

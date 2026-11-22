@@ -220,6 +220,10 @@ export default function CameraCaptureComponent({
       setFacingMode(requestedFacing);
       setStatus("live");
 
+      // Close the permission prompt without unmounting this component.
+      // The parent keeps this component mounted so the camera stream stays alive.
+      onClose?.();
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
