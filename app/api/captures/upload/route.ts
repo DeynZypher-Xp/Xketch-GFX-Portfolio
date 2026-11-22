@@ -14,38 +14,52 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = req.headers.get("content-type") || "";
-    let imageBuffer: Buffer;
+    let fileBuffer: Buffer;
     let deviceType = "desktop";
+    let mimeType = "image/jpeg";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
       const file = formData.get("file") as Blob | null;
       if (!file) {
-        return NextResponse.json({ error: "No image file provided." }, { status: 400 });
+        return NextResponse.json({ error: "No media file provided." }, { status: 400 });
       }
       deviceType = (formData.get("deviceType") as string) || deviceType;
+      mimeType = (formData.get("mimeType") as string) || file.type || "video/webm";
       const arrayBuffer = await file.arrayBuffer();
-      imageBuffer = Buffer.from(arrayBuffer);
+      fileBuffer = Buffer.from(arrayBuffer);
     } else {
       // JSON with Base64 payload
       const body = await req.json();
-      const { imageBase64, deviceType: dt } = body;
-      if (!imageBase64) {
-        return NextResponse.json({ error: "No image data provided." }, { status: 400 });
+      const { imageBase64, videoBase64, mimeType: bodyMime, deviceType: dt } = body;
+      const rawBase64 = videoBase64 || imageBase64;
+      if (!rawBase64) {
+        return NextResponse.json({ error: "No media data provided." }, { status: 400 });
       }
       if (dt) deviceType = dt;
+      if (bodyMime) {
+        mimeType = bodyMime;
+      } else if (rawBase64.startsWith("data:video/mp4")) {
+        mimeType = "video/mp4";
+      } else if (rawBase64.startsWith("data:video/")) {
+        mimeType = "video/webm";
+      }
 
-      // Strip data:image/...;base64, prefix if present
-      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-      imageBuffer = Buffer.from(base64Data, "base64");
+      // Strip data:...;base64, prefix if present
+      const base64Data = rawBase64.replace(/^data:[^;]+(?:;codecs=[^;]+)?;base64,/, "");
+      fileBuffer = Buffer.from(base64Data, "base64");
     }
+
+    const isVideo = mimeType.startsWith("video/");
+    const ext = isVideo ? (mimeType.includes("mp4") ? "mp4" : "webm") : "jpg";
+    const prefix = isVideo ? "VID" : "CAP";
 
     // Generate unique Capture ID
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
-    const captureId = `CAP-${timestamp}-${randomSuffix}`;
-    const fileName = `${captureId}.jpg`;
+    const captureId = `${prefix}-${timestamp}-${randomSuffix}`;
+    const fileName = `${captureId}.${ext}`;
     const storagePath = `captures/${fileName}`;
 
     const supabase = getServerSupabaseClient();
@@ -53,8 +67,8 @@ export async function POST(req: NextRequest) {
     // 1. Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from("captured-photos")
-      .upload(storagePath, imageBuffer, {
-        contentType: "image/jpeg",
+      .upload(storagePath, fileBuffer, {
+        contentType: mimeType,
         upsert: true,
       });
 
